@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Environment
+.env
+
+# Logs
+logs/
+*.log
+
+# OS / editor artefacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
