@@ -8,6 +8,7 @@ const { runCycle, startScheduler, getSchedulerState } = require('../pipeline/sch
 const { judgeCandidates } = require('../pipeline/judgment');
 const { getRollingMemory } = require('../pipeline/memory');
 const { generatePost } = require('../pipeline/writer');
+const { fetchWebContent } = require('../utils/webFetcher');
 
 /**
  * POST /api/agent/init
@@ -167,10 +168,16 @@ router.get('/stats', (req, res) => {
       WHERE agent_id = ?
     `).get(agentId);
 
+    // Count rejections
+    const rejCount = db.prepare(`
+      SELECT COUNT(id) as total FROM rejected_topics WHERE agent_id = ?
+    `).get(agentId);
+
     const stats = {
       total_posts: counts ? (counts.total || 0) : 0,
       real_llm_posts: counts ? (counts.real_posts || 0) : 0,
       mock_posts: counts ? (counts.mock_posts || 0) : 0,
+      total_rejected: rejCount ? (rejCount.total || 0) : 0,
       scheduler_status: state.schedulerStatus,
       last_cycle_at: state.lastCycleAt,
       last_cycle_result: state.lastCycleResult,
@@ -186,19 +193,26 @@ router.get('/stats', (req, res) => {
 
 /**
  * POST /api/agent/simulate
- * Accepts a custom { title, snippet, url } body, runs it through the full
- * judgment + writer pipeline, and returns the result — for demo/testing.
+ * Accepts { title, snippet, url }. Fetches the URL content for richer AI context,
+ * runs the 4-criteria judgment matrix, and optionally generates a post.
  */
 router.post('/simulate', async (req, res) => {
   const { title, snippet, url } = req.body || {};
-  if (!title) {
+  if (!title || !title.trim()) {
     return res.status(400).json({ error: 'Missing required field: title' });
   }
 
   const agentId = config.PERSONA.id;
-  const targetUrl = url && url.trim().startsWith('http') 
-    ? url.trim() 
+  const targetUrl = url && url.trim().startsWith('http')
+    ? url.trim()
     : `https://arxiv.org/search/?query=${encodeURIComponent(title.trim())}&searchtype=all`;
+
+  // Fetch web content for richer judgment context
+  console.log(`[SIMULATE] Fetching web content from: ${targetUrl}`);
+  const fetchedContent = await fetchWebContent(targetUrl, title.trim());
+  if (fetchedContent) {
+    console.log(`[SIMULATE] Fetched ${fetchedContent.length} chars from URL/Metadata.`);
+  }
 
   const candidate = {
     title: title.trim(),
@@ -206,11 +220,11 @@ router.post('/simulate', async (req, res) => {
     url: targetUrl,
     source: 'Simulation',
     publishedAt: new Date().toISOString(),
+    fetchedContent,
   };
 
   try {
     const judgmentResponse = await judgeCandidates([candidate], agentId);
-    console.log('[SIMULATE] judgment response:', JSON.stringify(judgmentResponse));
 
     if (!judgmentResponse.success) {
       return res.status(500).json({ error: judgmentResponse.error || 'Judgment failed.' });
@@ -218,7 +232,7 @@ router.post('/simulate', async (req, res) => {
 
     const judgment = judgmentResponse.judgments[0];
     if (!judgment) {
-      return res.status(500).json({ error: 'Gemini returned no judgment for this candidate.' });
+      return res.status(500).json({ error: 'No judgment returned.' });
     }
 
     let post = null;
@@ -230,9 +244,12 @@ router.post('/simulate', async (req, res) => {
 
     return res.json({
       verdict: judgment.verdict,
-      score: typeof judgment.score === 'number' ? judgment.score : null,
+      score: typeof judgment.final_score === 'number' ? judgment.final_score : judgment.score,
+      criteria: judgment.criteria || null,
       reason: judgment.reason || 'No reason returned.',
       topicTags: judgment.topicTags || [],
+      resolvedUrl: targetUrl,
+      fetchedContent: fetchedContent ? fetchedContent.substring(0, 500) : null,
       post: post || null,
     });
   } catch (err) {
@@ -240,6 +257,7 @@ router.post('/simulate', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = router;
 

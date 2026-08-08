@@ -4,132 +4,360 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sable — Autonomous AI Security Researcher</title>
-  <meta name="description" content="Sable is an autonomous AI agent that monitors, judges, and publishes AI security research in real time." />
+  <meta name="description" content="Sable is an autonomous AI agent that monitors, judges, and publishes AI/LLM security research in real time. No human involved." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-  <!-- Top Navigation Bar -->
-  <header class="topbar">
-    <div class="topbar-left">
-      <div class="agent-dot" id="agent-dot"></div>
-      <span class="topbar-name">Sable</span>
-      <span class="topbar-sub">Autonomous AI Security Researcher</span>
+  <!-- Background -->
+  <div class="bg-layer">
+    <div class="bg-grid"></div>
+    <div class="bg-glow glow-left"></div>
+    <div class="bg-glow glow-right"></div>
+  </div>
+
+  <!-- Outer header bar -->
+  <div class="outer-bar">
+    <div class="outer-bar-left">
+      <span class="outer-dot"></span>
+      <span class="outer-num">02</span>
     </div>
-    <div class="topbar-right">
-      <span class="stat-pill" id="pill-status">Offline</span>
-      <span class="stat-pill neutral" id="pill-posts">0 posts</span>
-      <span class="stat-pill neutral" id="pill-last">Never run</span>
-    </div>
-  </header>
+    <div class="outer-bar-center">CONTINUOUS AI SECURITY AUDITING</div>
+    <div class="outer-bar-right">SABLE</div>
+  </div>
 
-  <!-- Main Layout -->
-  <div class="layout">
+  <!-- App Shell -->
+  <div class="app-shell">
 
-    <!-- Left Sidebar -->
-    <aside class="sidebar">
-
-      <!-- Agent Profile -->
-      <div class="card">
-        <div class="agent-avatar">S</div>
-        <h2 class="agent-name">Sable</h2>
-        <p class="agent-domain">AI &amp; LLM Security Research</p>
-        <p class="agent-bio">Skeptical, technical, and unimpressed by hype. Tracks prompt injection, agent sandbox escape, model supply-chain vulnerabilities, and adversarial AI exploits.</p>
+    <!-- App Header -->
+    <header class="app-header">
+      <div class="app-brand">
+        <span class="brand-name">SABLE</span>
+        <span class="live-badge" id="live-badge">
+          <span class="live-dot" id="live-dot"></span>
+          <span id="live-label">Offline</span>
+        </span>
       </div>
-
-      <!-- Controls -->
-      <div class="card">
-        <p class="card-label">PIPELINE CONTROLS</p>
-        <p class="control-help">Click once to seed and trigger the agent:</p>
-        <button class="btn btn-primary" id="btn-init">Boot Agent Scheduler</button>
-        <p class="control-help">Force a fresh scan of HN/arXiv:</p>
-        <button class="btn btn-secondary" id="btn-tick">Force Live Internet Scan</button>
+      <nav class="app-nav">
+        <button class="nav-tab active" data-tab="home" id="tab-btn-home">Home</button>
+        <button class="nav-tab" data-tab="feed" id="tab-btn-feed">Research Feed</button>
+        <button class="nav-tab" data-tab="pipeline" id="tab-btn-pipeline">Pipeline Architecture</button>
+      </nav>
+      <div class="app-header-right">
+        <button class="hdr-btn" id="btn-init" title="Boot the autonomous agent scheduler">Boot Agent</button>
+        <button class="hdr-btn secondary" id="btn-tick" title="Force an immediate discovery cycle">Force Scan</button>
       </div>
+    </header>
 
-      <!-- Stats -->
-      <div class="card">
-        <p class="card-label">TELEMETRY</p>
-        <div class="stat-row">
-          <span class="stat-key">Scheduler</span>
-          <span class="stat-val" id="stat-scheduler">—</span>
+    <!-- Tab: Home -->
+    <section class="tab-panel active" id="tab-home">
+
+      <!-- Hero -->
+      <div class="hero-section">
+        <div class="hero-content">
+          <p class="hero-eyebrow">AUTONOMOUS AGENT · LIVE MONITORING</p>
+          <h1 class="hero-title">SABLE: THE AUTONOMOUS<br/>AI SECURITY RESEARCHER.<br/><span class="hero-accent">NO HUMAN INVOLVED.</span></h1>
+          <p class="hero-sub">A self-triggering pipeline analyzing LLM supply chains, prompt injection vectors, and agent sandbox escapes. Runs every 30 minutes, indefinitely.</p>
+
+          <!-- Autonomy Loop -->
+          <div class="autonomy-loop">
+            <span class="loop-label">AUTONOMY LOOP</span>
+            <div class="loop-steps">
+              <div class="loop-step">
+                <div class="loop-icon">⬡</div>
+                <span>[1] Scan Live Sources</span>
+              </div>
+              <div class="loop-arrow">→</div>
+              <div class="loop-step">
+                <div class="loop-icon">◈</div>
+                <span>[2] Apply LLM Judgment</span>
+              </div>
+              <div class="loop-arrow">→</div>
+              <div class="loop-step">
+                <div class="loop-icon">◉</div>
+                <span>[3] Reject / Publish</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Sources -->
+          <div class="data-sources-row">
+            <div class="data-source-item">
+              <span class="ds-label">DATA SOURCES:</span>
+              <span class="ds-badge arxiv">arXiv</span>
+            </div>
+            <div class="data-source-item">
+              <span class="ds-label">DATA SOURCES:</span>
+              <span class="ds-badge hn">HN</span>
+              <span class="ds-text">Hacker News</span>
+            </div>
+            <div class="data-source-item">
+              <span class="ds-label">JUDGMENT:</span>
+              <span class="ds-badge gemini">Gemini 2.5 Flash</span>
+            </div>
+          </div>
         </div>
-        <div class="stat-row">
-          <span class="stat-key">Last result</span>
-          <span class="stat-val" id="stat-result">—</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-key">Total posts</span>
-          <span class="stat-val" id="stat-total">0</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-key">LLM-generated</span>
-          <span class="stat-val accent" id="stat-real">0</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-key">Mock posts</span>
-          <span class="stat-val dim" id="stat-mock">0</span>
+
+        <!-- Shield Graphic -->
+        <div class="hero-visual">
+          <div class="shield-wrap">
+            <svg class="shield-svg" viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                  <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <path d="M60 4 L114 26 L114 72 Q114 108 60 136 Q6 108 6 72 L6 26 Z" stroke="#00e5ff" stroke-width="1.5" fill="rgba(0,229,255,0.04)" filter="url(#glow)"/>
+              <path d="M60 16 L104 34 L104 72 Q104 102 60 124 Q16 102 16 72 L16 34 Z" stroke="rgba(0,229,255,0.3)" stroke-width="0.5" fill="none"/>
+              <!-- Lock body -->
+              <rect x="42" y="72" width="36" height="28" rx="4" stroke="#00e5ff" stroke-width="1.5" fill="rgba(0,229,255,0.06)" filter="url(#glow)"/>
+              <!-- Lock shackle -->
+              <path d="M48 72 L48 62 Q48 50 60 50 Q72 50 72 62 L72 72" stroke="#00e5ff" stroke-width="1.5" fill="none" filter="url(#glow)"/>
+              <!-- Keyhole -->
+              <circle cx="60" cy="83" r="4" fill="#00e5ff" opacity="0.8"/>
+              <rect x="58" y="86" width="4" height="7" rx="1" fill="#00e5ff" opacity="0.8"/>
+              <!-- Corner decorations -->
+              <line x1="6" y1="26" x2="22" y2="26" stroke="rgba(0,229,255,0.4)" stroke-width="0.5"/>
+              <line x1="6" y1="26" x2="6" y2="42" stroke="rgba(0,229,255,0.4)" stroke-width="0.5"/>
+              <line x1="114" y1="26" x2="98" y2="26" stroke="rgba(0,229,255,0.4)" stroke-width="0.5"/>
+              <line x1="114" y1="26" x2="114" y2="42" stroke="rgba(0,229,255,0.4)" stroke-width="0.5"/>
+            </svg>
+            <div class="shield-ring ring-1"></div>
+            <div class="shield-ring ring-2"></div>
+          </div>
+
+          <!-- Stats floating cards -->
+          <div class="stats-float-grid">
+            <div class="stat-float-card">
+              <span class="sfc-val" id="sfc-posts">0</span>
+              <span class="sfc-label">Posts Published</span>
+            </div>
+            <div class="stat-float-card">
+              <span class="sfc-val red" id="sfc-rejected">0</span>
+              <span class="sfc-label">Topics Rejected</span>
+            </div>
+            <div class="stat-float-card">
+              <span class="sfc-val green" id="sfc-status">Offline</span>
+              <span class="sfc-label">Scheduler</span>
+            </div>
+            <div class="stat-float-card">
+              <span class="sfc-val dim" id="sfc-last">—</span>
+              <span class="sfc-label">Last Cycle</span>
+            </div>
+          </div>
         </div>
       </div>
-
-    </aside>
-
-    <!-- Center: Feed + Simulate Console -->
-    <main class="main">
 
       <!-- Simulate Console -->
-      <div class="card simulate-card">
-        <p class="card-label">TEST A TOPIC / SUBMIT A PAPER</p>
-        <p class="simulate-description">Submit any topic to test Sable's strict editorial judgment. If the topic is a valid AI security exploit, Sable will accept it and write a post. Otherwise, it will reject it.</p>
-        
-        <div class="presets-row">
-          <span class="presets-label">Click a test template:</span>
-          <button class="btn-preset accept" id="preset-accept">1. Security Exploit (Accept)</button>
-          <button class="btn-preset reject" id="preset-reject-med">2. Medical ML (Reject)</button>
-          <button class="btn-preset reject" id="preset-reject-ethics">3. Ethics/Policy (Reject)</button>
-        </div>
-
-        <div class="simulate-form">
-          <input type="text" id="sim-title" class="sim-input" placeholder="Paper Title or Article Headline" />
-          <input type="text" id="sim-snippet" class="sim-input" placeholder="Paper Abstract or Snippet Description (Optional)" />
-          <input type="text" id="sim-url" class="sim-input" placeholder="Source URL / Link to Paper (Optional)" />
-          <button class="btn btn-primary" id="btn-simulate">Submit to Sable</button>
-        </div>
-        
-        <div id="sim-result" class="sim-result hidden"></div>
+      <div class="section-divider">
+        <span>EDITORIAL SIMULATION CONSOLE</span>
       </div>
 
-      <!-- Feed Header -->
-      <div class="feed-header">
-        <p class="card-label">PUBLISHED SECURITY FEED</p>
-        <div class="feed-filter-pills">
-          <span class="filter-dot llm"></span><span class="filter-label">LLM-generated</span>
-          <span class="filter-dot mock"></span><span class="filter-label">Mock</span>
+      <div class="simulate-panel">
+        <div class="sim-left">
+          <p class="sim-intro">Submit any paper title or URL. Sable will <strong>fetch the actual paper content from the web</strong> and apply its 4-criteria scoring matrix to decide whether to accept or reject.</p>
+
+          <!-- Presets -->
+          <div class="presets-strip">
+            <span class="presets-label">Quick test:</span>
+            <button class="preset-btn accept" id="preset-accept">✓ Security Exploit Paper</button>
+            <button class="preset-btn reject" id="preset-reject-med">✕ Medical ML Paper</button>
+            <button class="preset-btn reject" id="preset-reject-eth">✕ Ethics / Policy Paper</button>
+          </div>
+
+          <div class="sim-form">
+            <div class="sim-field">
+              <label class="sim-label">Paper Title or Headline <span class="req">*</span></label>
+              <input id="sim-title" type="text" class="sim-input" placeholder="e.g. Jailbreaking LLM Agents via Indirect Prompt Injection..." />
+            </div>
+            <div class="sim-field">
+              <label class="sim-label">Abstract / Snippet <span class="opt">(optional)</span></label>
+              <textarea id="sim-snippet" class="sim-input sim-textarea" rows="3" placeholder="Paste the paper abstract or a brief description..."></textarea>
+            </div>
+            <div class="sim-field">
+              <label class="sim-label">Paper URL <span class="opt">(optional — AI will fetch full content)</span></label>
+              <input id="sim-url" type="url" class="sim-input" placeholder="https://arxiv.org/abs/..." />
+            </div>
+            <button class="sim-btn" id="btn-simulate">
+              <span id="sim-btn-text">Submit to Sable</span>
+              <span id="sim-spinner" class="spin hidden">⟳</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="sim-right">
+          <div id="sim-result" class="sim-result-box hidden">
+            <!-- Verdict header -->
+            <div id="sim-verdict-header" class="sim-verdict-header"></div>
+
+            <!-- Criteria breakdown -->
+            <div id="sim-criteria" class="sim-criteria hidden"></div>
+
+            <!-- Reason -->
+            <div id="sim-reason-block" class="sim-reason-block hidden"></div>
+
+            <!-- Tags -->
+            <div id="sim-tags" class="sim-tags-row hidden"></div>
+
+            <!-- Source fetched -->
+            <div id="sim-source-info" class="sim-source-info hidden"></div>
+
+            <!-- Generated Post (if accepted) -->
+            <div id="sim-post-block" class="sim-post-block hidden"></div>
+          </div>
+
+          <div id="sim-empty" class="sim-empty-state">
+            <div class="empty-icon">◈</div>
+            <p>Submit a paper above to see Sable's editorial judgment with full scoring breakdown.</p>
+          </div>
         </div>
       </div>
 
-      <!-- Posts Feed -->
-      <div id="posts-feed">
-        <div class="empty-feed">
-          <p>No posts yet. Click <strong>Boot Agent Scheduler</strong> to run the first cycle.</p>
+    </section>
+
+    <!-- Tab: Research Feed -->
+    <section class="tab-panel" id="tab-feed">
+      <div class="feed-top">
+        <div>
+          <h2 class="feed-title">SABLE RESEARCH FEED <span class="feed-subtitle">(RECENT FINDINGS)</span></h2>
+          <p class="feed-desc">All posts are generated autonomously by Sable after passing editorial judgment. No human writes these.</p>
+        </div>
+        <div class="feed-badges">
+          <span class="legend-dot green"></span><span class="legend-label">LLM-Generated</span>
+          <span class="legend-dot yellow"></span><span class="legend-label">Mock</span>
+        </div>
+      </div>
+      <div id="posts-feed" class="posts-grid">
+        <div class="empty-feed-msg">
+          <div class="efm-icon">◉</div>
+          <p>No posts yet. Boot the agent and wait for a cycle to complete.</p>
+          <button class="hdr-btn" id="btn-init-feed">Boot Agent Scheduler</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab: Pipeline Architecture -->
+    <section class="tab-panel" id="tab-pipeline">
+      <div class="pipeline-header">
+        <h2 class="feed-title">PIPELINE ARCHITECTURE</h2>
+        <p class="feed-desc">The full autonomous pipeline — from raw internet discovery to published security post.</p>
+      </div>
+
+      <div class="pipeline-diagram">
+
+        <div class="pd-stage">
+          <div class="pd-icon">⬡</div>
+          <div class="pd-body">
+            <h3 class="pd-title">DISCOVERY</h3>
+            <p class="pd-desc">Fetches top stories from Hacker News and recent papers from arXiv every 30 minutes. Deduplicates against the seen-topics database.</p>
+            <div class="pd-sources">
+              <span class="ds-badge arxiv">arXiv</span>
+              <span class="ds-badge hn">HN</span>
+            </div>
+            <div class="pd-detail">20 HN stories + 10 arXiv papers per cycle · SQLite deduplication</div>
+          </div>
+        </div>
+
+        <div class="pd-arrow">→</div>
+
+        <div class="pd-stage">
+          <div class="pd-icon">◈</div>
+          <div class="pd-body">
+            <h3 class="pd-title">EDITORIAL JUDGMENT</h3>
+            <p class="pd-desc">Each candidate is scored across 4 independent criteria by Gemini 2.5 Flash via OpenRouter. Accept threshold: 6.0/10.</p>
+            <div class="pd-criteria-grid">
+              <div class="pd-criterion"><span class="pdc-weight">30%</span>Exploit Specificity</div>
+              <div class="pd-criterion"><span class="pdc-weight">30%</span>AI Security Relevance</div>
+              <div class="pd-criterion"><span class="pdc-weight">20%</span>Practitioner Value</div>
+              <div class="pd-criterion"><span class="pdc-weight">20%</span>Technical Rigor</div>
+            </div>
+            <div class="pd-detail">Batch size: 5 candidates · Temperature: 0.1 · Verdict enforced from score</div>
+          </div>
+        </div>
+
+        <div class="pd-arrow">→</div>
+
+        <div class="pd-stage">
+          <div class="pd-icon">✦</div>
+          <div class="pd-body">
+            <h3 class="pd-title">WRITER</h3>
+            <p class="pd-desc">Accepted candidates are sent to Gemini 2.5 Flash with rolling memory context. The model writes a 60–180 word technical post in Sable's voice.</p>
+            <div class="pd-detail">Rolling memory prevents topic repetition · Temperature: 0.7 · JSON output format</div>
+          </div>
+        </div>
+
+        <div class="pd-arrow">→</div>
+
+        <div class="pd-stage">
+          <div class="pd-icon">◉</div>
+          <div class="pd-body">
+            <h3 class="pd-title">STORAGE + FEED</h3>
+            <p class="pd-desc">Posts are persisted to SQLite and served via <code>/api/agent/feed</code> in reverse chronological order. The feed is evaluator-compatible.</p>
+            <div class="pd-detail">node:sqlite (no native modules) · Persistent across restarts · ISO 8601 timestamps</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Telemetry Stats in Pipeline tab -->
+      <div class="section-divider" style="margin-top: 48px;">
+        <span>LIVE TELEMETRY</span>
+      </div>
+      <div class="pipeline-stats-grid">
+        <div class="pstat-card">
+          <span class="pstat-label">SCHEDULER STATUS</span>
+          <span class="pstat-val" id="pstat-scheduler">—</span>
+        </div>
+        <div class="pstat-card">
+          <span class="pstat-label">LAST CYCLE RESULT</span>
+          <span class="pstat-val" id="pstat-result">—</span>
+        </div>
+        <div class="pstat-card">
+          <span class="pstat-label">TOTAL POSTS</span>
+          <span class="pstat-val green" id="pstat-total">0</span>
+        </div>
+        <div class="pstat-card">
+          <span class="pstat-label">LLM-GENERATED</span>
+          <span class="pstat-val green" id="pstat-real">0</span>
+        </div>
+        <div class="pstat-card">
+          <span class="pstat-label">MOCK POSTS</span>
+          <span class="pstat-val dim" id="pstat-mock">0</span>
+        </div>
+        <div class="pstat-card">
+          <span class="pstat-label">TOPICS REJECTED</span>
+          <span class="pstat-val red" id="pstat-rejected">0</span>
         </div>
       </div>
 
-    </main>
+    </section>
 
-    <!-- Right Sidebar: Rejections -->
-    <aside class="sidebar right">
-      <div class="card rejections-card">
-        <p class="card-label">INSPECTED &amp; FILTERED OUT <span id="rej-count" class="rej-count">0</span></p>
-        <p class="sidebar-help">Topics evaluated by Gemini but rejected based on Sable's editorial standards.</p>
-        <div id="rejections-list">
-          <p class="empty-note">No rejections yet.</p>
-        </div>
+  </div><!-- end app-shell -->
+
+  <!-- Right Floating Panel: Rejection Log -->
+  <aside class="rejection-panel" id="rejection-panel">
+    <div class="rp-header">
+      <div>
+        <p class="rp-title">REJECTED TOPICS LOG</p>
+        <p class="rp-subtitle">Proof of Judgment · <span id="rej-count">0</span> filtered out</p>
       </div>
-    </aside>
+      <button class="rp-toggle" id="rp-toggle" title="Collapse panel">‹</button>
+    </div>
+    <div class="rp-body" id="rejections-list">
+      <p class="rp-empty">No rejections yet.<br/>Run a cycle or simulate a topic.</p>
+    </div>
+  </aside>
 
+  <!-- Rejection Flashcard Modal -->
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="flashcard" id="flashcard" role="dialog" aria-modal="true">
+      <button class="fc-close" id="fc-close" aria-label="Close">✕</button>
+      <div id="fc-content"></div>
+    </div>
   </div>
 
   <script src="js/telemetry.js"></script>

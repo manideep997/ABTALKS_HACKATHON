@@ -1,16 +1,9 @@
+/* telemetry.js — API client for Sable dashboard */
 'use strict';
 
 const API_BASE = '/api/agent';
 
 const Telemetry = {
-  async initAgent() {
-    const r = await fetch(`${API_BASE}/init`, { method: 'POST' });
-    return r.json();
-  },
-  async triggerTick() {
-    const r = await fetch(`${API_BASE}/tick`, { method: 'POST' });
-    return r.json();
-  },
   async getFeed() {
     const r = await fetch(`${API_BASE}/feed`);
     return r.json();
@@ -29,6 +22,14 @@ const Telemetry = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, snippet, url }),
     });
+    return r.json();
+  },
+  async initAgent() {
+    const r = await fetch(`${API_BASE}/init`, { method: 'POST' });
+    return r.json();
+  },
+  async triggerTick() {
+    const r = await fetch(`${API_BASE}/tick`, { method: 'POST' });
     return r.json();
   },
 };
