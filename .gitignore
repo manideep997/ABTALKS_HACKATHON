@@ -1,19 +1,18 @@
 # Dependencies
 node_modules/
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
 
-# Environment
+# Environment — NEVER commit real keys
 .env
 
-# Logs
-logs/
-*.log
+# SQLite database file (persisted on the host, not in source control)
+sable.db
 
-# OS / editor artefacts
+# OS / Editor
 .DS_Store
 Thumbs.db
-.idea/
 .vscode/
-*.swp
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
