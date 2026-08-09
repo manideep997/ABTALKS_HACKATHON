@@ -144,7 +144,9 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
         const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) directly to Google AI Studio (@google/genai)...`);
-        const modelName = (config.GEMINI_MODEL || 'gemini-2.5-flash').replace('google/', '');
+        const modelName = (config.GEMINI_MODEL || 'gemini-2.0-flash')
+          .replace('google/', '')
+          .replace('gemini-2.5-flash', 'gemini-2.0-flash');
         const res = await ai.models.generateContent({
           model: modelName,
           contents: `${SYSTEM_PROMPT}\n\n${promptText}`,
