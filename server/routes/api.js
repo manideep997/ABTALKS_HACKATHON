@@ -280,6 +280,20 @@ router.post('/simulate', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/agent/list
+ * Returns a list of all registered agents.
+ */
+router.get('/list', (req, res) => {
+  const db = getDb();
+  try {
+    const rows = db.prepare('SELECT id, name, domain, created_at FROM agents ORDER BY created_at DESC').all();
+    return res.json(rows);
+  } catch (err) {
+    console.error(`[API ERROR] /list failed: ${err.message}`);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;
 

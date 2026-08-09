@@ -89,10 +89,16 @@
           <div class="stat-big" id="hero-stat-rejected">—</div>
           <div class="stat-trend">Strict 4-criteria filter</div>
         </div>
-        <div class="live-stat-card stagger">
-          <div class="stat-label-sm">Agent ID</div>
-          <div class="stat-big stat-mono" id="hero-agent-id">—</div>
-          <div class="stat-trend" id="hero-scheduler-status">Initializing…</div>
+        <div class="live-stat-card stagger" style="display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div class="stat-label-sm">Active Agent Profile</div>
+            <div style="margin-top: 10px; position: relative;">
+              <select id="agent-selector" style="background: rgba(10, 10, 15, 0.9); color: var(--color-text); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 6px 12px; font-family: monospace; font-size: 14px; width: 100%; cursor: pointer; outline: none; transition: border-color 0.2s;">
+                <option value="">Loading agents...</option>
+              </select>
+            </div>
+          </div>
+          <div class="stat-trend" id="hero-scheduler-status" style="margin-top: 8px;">Initializing…</div>
         </div>
       </div>
     </div>

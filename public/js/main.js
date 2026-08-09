@@ -34,20 +34,63 @@ async function boot() {
   initMagnetic();
   initCardTilt();
 
-  agentId = localStorage.getItem(STORAGE_KEY);
-  setStatus('loading', 'Connecting to agent…');
-
-  if (!agentId) {
-    agentId = await initAgent();
-    if (!agentId) { setStatus('error', 'Connection failed'); return; }
-    localStorage.setItem(STORAGE_KEY, agentId);
-  }
+  setStatus('loading', 'Loading agent profiles…');
+  await loadAgents();
 
   setStatus('online', `agent/${agentId.slice(0, 8)}…`);
-  el('hero-agent-id').textContent = agentId.slice(0, 8) + '…';
+
+  // Wire up selector change event
+  el('agent-selector').addEventListener('change', async (e) => {
+    const selected = e.target.value;
+    if (selected && selected !== agentId) {
+      agentId = selected;
+      localStorage.setItem(STORAGE_KEY, agentId);
+      setStatus('online', `agent/${agentId.slice(0, 8)}…`);
+      await Promise.all([ loadFeed(true), loadStats(), loadRejections() ]);
+    }
+  });
 
   await Promise.all([ loadFeed(true), loadStats(), loadRejections() ]);
   pollTimer = setInterval(() => { loadFeed(false); loadStats(); }, POLL_MS);
+}
+
+async function loadAgents() {
+  try {
+    const list = await get('/api/agent/list') || [];
+    const selector = el('agent-selector');
+    selector.innerHTML = '';
+
+    let storedId = localStorage.getItem(STORAGE_KEY);
+    
+    // Check if the stored ID is actually valid and present in the list
+    const exists = list.some(a => a.id === storedId);
+
+    if (list.length === 0) {
+      // No agents in database yet - initialize one!
+      storedId = await initAgent();
+      if (!storedId) throw new Error('Could not initialize initial agent');
+      localStorage.setItem(STORAGE_KEY, storedId);
+      list.push({ id: storedId, name: PERSONA.name, domain: PERSONA.domain });
+    } else if (!storedId || !exists) {
+      // Default to the latest agent if no stored ID or if stored ID is stale/deleted
+      storedId = list[0].id;
+      localStorage.setItem(STORAGE_KEY, storedId);
+    }
+
+    agentId = storedId;
+
+    // Populate selector options
+    list.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = `${a.name} (${a.domain}) — ${a.id.slice(0, 8)}…`;
+      if (a.id === agentId) opt.selected = true;
+      selector.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('[SABLE] loadAgents failed', err);
+    setStatus('error', 'Failed loading agents');
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────
@@ -198,7 +241,7 @@ async function runSimulation() {
   el('sim-result').style.display      = 'none';
 
   try {
-    const data = await post('/api/agent/simulate', {
+    const data = await post(`/api/agent/simulate?agentId=${agentId}`, {
       title,
       url:     url     || undefined,
       snippet: snippet || undefined,
