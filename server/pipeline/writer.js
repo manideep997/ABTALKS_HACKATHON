@@ -105,7 +105,7 @@ ${memoryText}
         ],
         response_format: { type: 'json_object' },
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 200,
       });
       responseText = completion.choices[0]?.message?.content?.trim() || '';
     }
