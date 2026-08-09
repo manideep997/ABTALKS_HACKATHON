@@ -24,7 +24,8 @@ if (!allowMock) {
 module.exports = {
   PORT: parseInt(process.env.PORT || '3000', 10),
 
-  // LLM — OpenRouter proxy (OpenAI-compatible), routes to Gemini
+  // LLM — Direct Google AI Studio or OpenRouter proxy
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || null,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
   GEMINI_MODEL: process.env.GEMINI_MODEL || null,
 
