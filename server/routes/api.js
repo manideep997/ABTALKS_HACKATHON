@@ -14,8 +14,7 @@ const { fetchWebContent, resolveTitleToUrl } = require('../utils/webFetcher');
 /**
  * POST /api/agent/init
  * Evaluator spec: accepts { persona: { name, domain } }, returns { agentId }.
- * Generates a unique agentId per run, stores agent with provided persona,
- * starts the scheduler, and runs cycle #1 immediately.
+ * Returns immediately — cycle #1 runs asynchronously in the background.
  */
 router.post('/init', async (req, res) => {
   const db = getDb();
@@ -37,29 +36,30 @@ router.post('/init', async (req, res) => {
     `).run(agentId, agentName, agentDomain, config.PERSONA.voiceNotes, now);
     console.log(`[API] Agent profile created — id=${agentId} name="${agentName}" domain="${agentDomain}"`);
 
-    // 2. Start background in-process cron for this agentId
+    // 2. Return agentId immediately — evaluator must not be kept waiting
+    res.json({ agentId });
+
+    // 3. Start scheduler and run cycle #1 asynchronously (after response sent)
     startScheduler(agentId);
-
-    // 3. Immediately execute cycle #1 synchronously
-    console.log('[API] /init triggering immediate cycle #1 execution...');
-    const cycleOutcome = await runCycle(agentId);
-
-    // Evaluator-required shape: { agentId }. Extra fields are allowed.
-    return res.json({
-      agentId,
-      cycleOutcome,
+    console.log('[API] /init triggering background cycle #1...');
+    runCycle(agentId).then(outcome => {
+      console.log(`[API] Background cycle #1 complete for agentId=${agentId}`, outcome?.postsPublished ?? '');
+    }).catch(err => {
+      console.error(`[API] Background cycle #1 error for agentId=${agentId}: ${err.message}`);
     });
+
   } catch (err) {
     console.error(`[API ERROR] /init failed: ${err.message}`);
-    return res.status(500).json({ success: false, error: err.message });
+    // Only send error if response not already sent
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
   }
 });
 
 /**
  * GET /api/agent/feed?agentId=<id>
- * Evaluator spec: returns { posts: [ { id, createdAt, text, rationale, sources } ] }
- * in reverse chronological order. Returns { posts: [] } when empty — never an error.
- * Extra fields (agentId, topicTags, isMock) are kept for dashboard use.
+ * Returns { posts: [...] } in reverse chronological order.
  */
 router.get('/feed', (req, res) => {
   const db = getDb();
@@ -79,11 +79,9 @@ router.get('/feed', (req, res) => {
       try { sources = JSON.parse(row.sources_json || '[]'); } catch (_e) {}
       try { topicTags = JSON.parse(row.topic_tags_json || '[]'); } catch (_e) {}
 
-      // Evaluator-required fields: id, createdAt, text, rationale, sources
-      // Extra dashboard fields: agentId, topicTags, isMock
       return {
         id: row.id,
-        createdAt: row.created_at,   // ISO 8601 UTC string ending in Z
+        createdAt: row.created_at,
         text: row.text || '',
         rationale: row.rationale || '',
         sources: Array.isArray(sources) ? sources : [],
@@ -103,7 +101,7 @@ router.get('/feed', (req, res) => {
 
 /**
  * POST /api/agent/tick
- * Manually triggers one autonomous pipeline cycle (subject to concurrency lock).
+ * Manually triggers one autonomous pipeline cycle.
  */
 router.post('/tick', async (req, res) => {
   const agentId = req.query.agentId || req.body.agentId || config.PERSONA.id;
@@ -111,19 +109,13 @@ router.post('/tick', async (req, res) => {
 
   if (state.isCycleRunning) {
     console.log('[API] /tick request rejected: cycle already running.');
-    return res.json({
-      status: 'skipped',
-      reason: 'cycle_already_in_progress',
-    });
+    return res.json({ status: 'skipped', reason: 'cycle_already_in_progress' });
   }
 
   try {
     console.log('[API] /tick manually triggering runCycle...');
     const outcome = await runCycle(agentId);
-    return res.json({
-      status: 'completed',
-      outcome,
-    });
+    return res.json({ status: 'completed', outcome });
   } catch (err) {
     console.error(`[API ERROR] /tick failed: ${err.message}`);
     return res.status(500).json({ error: err.message });
@@ -132,7 +124,6 @@ router.post('/tick', async (req, res) => {
 
 /**
  * GET /api/agent/rejections
- * Returns logs of rejected candidate topics.
  */
 router.get('/rejections', (req, res) => {
   const db = getDb();
@@ -155,7 +146,6 @@ router.get('/rejections', (req, res) => {
 
 /**
  * GET /api/agent/stats
- * Returns operational metrics including counts of real vs mock posts and scheduler state.
  */
 router.get('/stats', (req, res) => {
   const db = getDb();
@@ -163,9 +153,8 @@ router.get('/stats', (req, res) => {
   const state = getSchedulerState();
 
   try {
-    // Count real vs mock posts
     const counts = db.prepare(`
-      SELECT 
+      SELECT
         COUNT(id) as total,
         SUM(CASE WHEN is_mock = 0 THEN 1 ELSE 0 END) as real_posts,
         SUM(CASE WHEN is_mock = 1 THEN 1 ELSE 0 END) as mock_posts
@@ -173,12 +162,11 @@ router.get('/stats', (req, res) => {
       WHERE agent_id = ?
     `).get(agentId);
 
-    // Count rejections
     const rejCount = db.prepare(`
       SELECT COUNT(id) as total FROM rejected_topics WHERE agent_id = ?
     `).get(agentId);
 
-    const stats = {
+    return res.json({
       total_posts: counts ? (counts.total || 0) : 0,
       real_llm_posts: counts ? (counts.real_posts || 0) : 0,
       mock_posts: counts ? (counts.mock_posts || 0) : 0,
@@ -187,9 +175,7 @@ router.get('/stats', (req, res) => {
       last_cycle_at: state.lastCycleAt,
       last_cycle_result: state.lastCycleResult,
       is_cycle_running: state.isCycleRunning,
-    };
-
-    return res.json(stats);
+    });
   } catch (err) {
     console.error(`[API ERROR] /stats failed: ${err.message}`);
     return res.status(500).json({ error: err.message });
@@ -198,10 +184,6 @@ router.get('/stats', (req, res) => {
 
 /**
  * POST /api/agent/simulate
- * Accepts { title, snippet, url }.
- * - If URL provided: fetch that exact URL.
- * - If only title provided: resolve to a single real paper URL via OpenAlex/S2, then fetch it.
- * - If resolution fails: return explicit error rather than judging on title alone.
  */
 router.post('/simulate', async (req, res) => {
   const { title, snippet, url } = req.body || {};
@@ -212,7 +194,6 @@ router.post('/simulate', async (req, res) => {
   const agentId = req.query.agentId || req.body.agentId || config.PERSONA.id;
   let targetUrl = url && url.trim().startsWith('http') ? url.trim() : null;
 
-  // Title-only path: resolve to one specific real paper URL
   if (!targetUrl) {
     console.log(`[SIMULATE] No URL provided — resolving title to real paper URL...`);
     try {
@@ -229,7 +210,6 @@ router.post('/simulate', async (req, res) => {
     console.log(`[SIMULATE] Resolved title to: ${targetUrl}`);
   }
 
-  // Fetch actual content from the resolved URL
   console.log(`[SIMULATE] Fetching web content from: ${targetUrl}`);
   const fetchedContent = await fetchWebContent(targetUrl, title.trim());
   if (fetchedContent) {
@@ -282,7 +262,6 @@ router.post('/simulate', async (req, res) => {
 
 /**
  * GET /api/agent/list
- * Returns a list of all registered agents.
  */
 router.get('/list', (req, res) => {
   const db = getDb();
@@ -296,4 +275,3 @@ router.get('/list', (req, res) => {
 });
 
 module.exports = router;
-
