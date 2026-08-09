@@ -22,7 +22,7 @@ function createFingerprint(title) {
  */
 async function fetchHackerNews() {
   try {
-    const url = 'https://hn.algolia.com/api/v1/search?query=AI+security&tags=story&numericFilters=created_at_i>0';
+    const url = 'https://hn.algolia.com/api/v1/search?query=(jailbreak+OR+prompt+injection+OR+LLM+security+OR+RAG+security)&tags=story&numericFilters=created_at_i>0';
     const response = await axios.get(url, { timeout: 8000 });
     const hits = (response.data && response.data.hits) || [];
 
@@ -52,7 +52,7 @@ async function fetchHackerNews() {
  */
 async function fetchArXiv() {
   try {
-    const url = 'http://export.arxiv.org/api/query?search_query=cat:cs.CR+OR+cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=10';
+    const url = 'http://export.arxiv.org/api/query?search_query=(cat:cs.CR+OR+cat:cs.AI)+AND+(LLM+OR+adversarial+OR+prompt+injection+OR+RAG+OR+vulnerability)&sortBy=submittedDate&sortOrder=descending&max_results=20';
     const response = await axios.get(url, { timeout: 10000 });
     const xml = response.data || '';
 
