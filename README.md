@@ -1,35 +1,61 @@
 # 🛡️ Sable — Autonomous AI Security Researcher Agent
 
-> An autonomous AI security intelligence agent that continuously discovers, judges, generates, and publishes technical threat analysis on AI vulnerabilities, prompt injection, RAG corruption, and model exploits.
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/manideep997/ABTALKS_HACKATHON)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org)
+[![Database](https://img.shields.io/badge/database-SQLite-003B57.svg)](https://www.sqlite.org/)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app)
+
+Sable is a **100% autonomous, always-on AI security intelligence agent** designed to continuously discover, evaluate, and publish technical threat intelligence on AI vulnerabilities, prompt injection, RAG corruption, and model jailbreaking.
 
 ---
 
-## 🌐 Live Application & Evaluation API
+## 🌐 Live Application & Repositories
 
-- **Live Host URL**: `https://sable-agent-production.up.railway.app`
-- **GitHub Repository**: `https://github.com/manideep997/ABTALKS_HACKATHON`
-
----
-
-## ⚡ Key Features
-
-1. **100% Autonomous Pipeline**: Boots from a single `POST /api/agent/init` call. Runs an in-process cron scheduler that autonomously discovers candidate papers, evaluates them, generates posts, and publishes to the feed 24/7.
-2. **Multi-Source Threat Discovery**: Scrapes real-time security research from **arXiv** (CS.CR, CS.AI) and **HackerNews Security**, deduplicating candidate URLs across a 72-hour sliding window.
-3. **Rigorous 4-Criteria Editorial Judgment**:
-   - **Exploit Specificity (30%)**: Clear attack vectors and mechanics.
-   - **AI Security Relevance (30%)**: Direct applicability to AI/ML systems.
-   - **Practitioner Value (20%)**: Actionable defensive or red-teaming insights.
-   - **Technical Rigor (20%)**: Empirical proof and methodology.
-   *(Acceptance Threshold: Score ≥ 7.0 / 10.0)*
-4. **Dual-Driver SQLite Persistence**: Uses `better-sqlite3` on Linux containers (Railway Volume `/data/sable.db`) and built-in `node:sqlite` locally for zero-config persistence across container restarts.
-5. **Modern Cyberpunk UI**: Embedded dashboard featuring real-time feed updates, score filters, simulation sandbox, and pipeline telemetry metrics.
+* 🌍 **Live Demo & API Host**: `https://sable-agent-production.up.railway.app`
+* 📂 **GitHub Repository**: `https://github.com/manideep997/ABTALKS_HACKATHON`
 
 ---
 
-## 🛠️ Evaluator Specification Conformance
+## ⚡ Key Architectural Features
 
-### 1. Initialize Agent (`POST /api/agent/init`)
-*Called exactly once before evaluation begins.*
+### 1. 🔄 100% Autonomous Lifecycle Loop
+Boots from a single `POST /api/agent/init` call. Instantiates an in-process background cron scheduler running active, perpetual cycles that pull threat candidates, filter them, write summaries, and publish without human intervention.
+
+### 2. 📡 Organic Threat Discovery
+Scrapes real-time security research using highly targeted API parameters from:
+- **arXiv API** (targeting `cs.CR` / `cs.AI` with search parameters focused on `LLM OR adversarial OR "prompt injection" OR RAG OR vulnerability`).
+- **HackerNews Algolia API** (filtered to stories matching `jailbreak OR "prompt injection" OR "LLM security" OR "RAG security"`).
+- Integrates a **72-hour sliding window deduplication index** using SQLite hashes.
+
+### 3. 🎯 Rigorous 4-Criteria Editorial Matrix
+Every discovered candidate is scored out of `10` across a weighted vector. A candidate must score **$\ge 7.0/10$** to be accepted.
+
+| Criteria | Weight | Evaluation Focus |
+| :--- | :---: | :--- |
+| **Exploit Specificity** | **30%** | Does it describe a concrete attack vector or vulnerability class? |
+| **AI Security Relevance** | **30%** | Does it directly address AI/LLM exploits (jailbreaks, RAG corruption)? |
+| **Practitioner Value** | **20%** | Can a security engineer act on this to harden threat models? |
+| **Technical Rigor** | **20%** | Does the research feature empirical validation or proof-of-concepts? |
+
+### 4. 🗄️ Resilient SQLite Persistence (Dual-Driver)
+Features a database layer that automatically detects the runtime platform:
+- Uses `better-sqlite3` on Linux containers (saving to Railway Volume `/data/sable.db`) for high-performance concurrent operations.
+- Falls back to built-in `node:sqlite` for local dev testing to ensure zero-dependency, out-of-the-box boot execution.
+
+### 🌌 Sleek Cyberpunk Dashboard
+An immersive, glassmorphism telemetry dashboard featuring:
+- **Active Agent Dropdown Selector**: Dynamically queries the database list of dynamic evaluations, defaulting to the latest active profile on load.
+- **Simulation Sandbox**: Allows security engineers to paste any paper title or URL to trace the raw LLM criteria ratings and generation output.
+- **Rejection Log**: Tracks rejected papers, displaying real-time scores and the exact editorial reason why they failed to meet the threat threshold.
+
+---
+
+## 🛠️ Evaluator REST Specification
+
+> [!IMPORTANT]
+> The evaluator initializes the agent exactly once and queries the feed repeatedly using the dynamically returned `agentId`. Sable guarantees full execution isolation.
+
+### 1. Boot Dynamic Profile (`POST /api/agent/init`)
 ```http
 POST /api/agent/init HTTP/1.1
 Content-Type: application/json
@@ -44,7 +70,7 @@ Content-Type: application/json
 **Response (HTTP 200 OK):**
 ```json
 {
-  "agentId": "d54520d2-a89a-4333-aec5-e29ab99d8b12",
+  "agentId": "1a30520c-988b-44b0-a255-d399c0e67ab9",
   "cycleOutcome": {
     "success": true,
     "result": "completed"
@@ -52,28 +78,27 @@ Content-Type: application/json
 }
 ```
 
-### 2. Fetch Agent Feed (`GET /api/agent/feed?agentId=<id>`)
-*Queried repeatedly by evaluator to fetch published posts.*
+### 2. Fetch Isolated Feed (`GET /api/agent/feed?agentId=<id>`)
 ```http
-GET /api/agent/feed?agentId=d54520d2-a89a-4333-aec5-e29ab99d8b12 HTTP/1.1
+GET /api/agent/feed?agentId=1a30520c-988b-44b0-a255-d399c0e67ab9 HTTP/1.1
 ```
 **Response (HTTP 200 OK):**
 ```json
 {
   "posts": [
     {
-      "id": "d54520d2-a89a-4333-aec5-e29ab99d8b12",
-      "createdAt": "2026-08-09T10:55:02.872Z",
-      "text": "The shift toward Retrieval-Augmented Generation (RAG) has inadvertently expanded the attack surface...",
-      "rationale": "RAG is the current architectural standard for enterprise LLM deployments...",
+      "id": "8febc6a0-1873-4e4b-9a62-977c7cd55b1e",
+      "createdAt": "2026-08-09T11:56:44.457Z",
+      "text": "The shift toward Retrieval-Augmented Generation (RAG) has expanded the attack surface from direct prompt injection to indirect knowledge corruption. PoisonedRAG highlights a critical vulnerability: if an adversary can inject malicious documents into the retrieval corpus, they effectively control the model's context window...",
+      "rationale": "RAG is the dominant architecture for enterprise LLM deployments...",
       "sources": [
         "https://arxiv.org/abs/2402.07867"
       ],
-      "agentId": "sable",
+      "agentId": "1a30520c-988b-44b0-a255-d399c0e67ab9",
       "topicTags": [
-        "RAG-Security",
-        "Data-Integrity",
-        "Indirect-Prompt-Injection"
+        "Indirect Prompt Injection",
+        "RAG Security",
+        "Data Integrity"
       ],
       "isMock": false
     }
@@ -83,39 +108,39 @@ GET /api/agent/feed?agentId=d54520d2-a89a-4333-aec5-e29ab99d8b12 HTTP/1.1
 
 ---
 
-## 💻 Local Installation & Setup
+## 💻 Local Quickstart
 
-1. **Clone Repository**:
-   ```bash
-   git clone https://github.com/manideep997/ABTALKS_HACKATHON.git
-   cd ABTALKS_HACKATHON
-   ```
+### 1. Clone & Setup
+```bash
+git clone https://github.com/manideep997/ABTALKS_HACKATHON.git
+cd ABTALKS_HACKATHON
+npm install
+```
 
-2. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
+### 2. Environment Setup (`.env`)
+Create a `.env` file in the root directory:
+```env
+PORT=3000
+DATABASE_PATH=./sable.db
+OPENROUTER_API_KEY=sk-or-v1-YOUR_KEY
+GEMINI_MODEL=google/gemma-4-26b-a4b-it:free
+```
 
-3. **Configure Environment (`.env`)**:
-   ```env
-   PORT=3000
-   DATABASE_PATH=./sable.db
-   OPENROUTER_API_KEY=sk-or-v1-...
-   GEMINI_MODEL=google/gemma-4-26b-a4b-it:free
-   ```
-
-4. **Start Application**:
-   ```bash
-   npm start
-   ```
-   Open `http://localhost:3000` in your browser.
+### 3. Launch
+```bash
+npm start
+```
+Open `http://localhost:3000` in your web browser.
 
 ---
 
-## 📑 File Structure & AI Usage Log
+## 📂 Codebase Structure
 
-- `server/index.js`: Express app startup, cron scheduler boot, static dashboard routes.
-- `server/routes/api.js`: REST API implementation (`/init`, `/feed`, `/stats`, `/tick`, `/simulate`).
-- `server/pipeline/`: Discovery, judgment, writer, and scheduler modules.
-- `server/db/database.js`: Dual-driver SQLite storage adapter (`better-sqlite3` / `node:sqlite`).
-- `prompts.md`: **AI Usage Log** documenting architecture design, debugging, and AI-assisted development.
+- `server/index.js` — Core Express entrypoint, database pings, and static asset mapping.
+- `server/routes/api.js` — API router containing `/init`, `/feed`, `/stats`, `/list`, and `/simulate`.
+- `server/pipeline/discovery.js` — Scraper pulling organically from arXiv and HN.
+- `server/pipeline/judgment.js` — Matrix scoring prompt and evaluation engine.
+- `server/pipeline/writer.js` — Summary post generation.
+- `server/pipeline/scheduler.js` — Multi-agent in-process scheduler thread loop.
+- `server/db/database.js` — Dynamic fallback database connection.
+- `prompts.md` — Chronological AI Usage Log tracking prompt instructions.
