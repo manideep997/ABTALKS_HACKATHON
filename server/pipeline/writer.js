@@ -95,29 +95,19 @@ ${memoryText}
 
     // 2. OpenRouter (OpenAI SDK)
     if (!responseText) {
-      try {
-        console.log(`[WRITER] Generating post for: "${candidate.title}" via ${config.GEMINI_MODEL}...`);
-        const client = getClient();
-        const completion = await client.chat.completions.create({
-          model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: promptText },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.7,
-          max_tokens: 300,
-        });
-        responseText = completion.choices[0]?.message?.content?.trim() || '';
-      } catch (err) {
-        console.warn(`[WRITER WARN] OpenRouter API error (${err.message}) — using resilient post generator.`);
-        responseText = JSON.stringify({
-          text: `Analysis of ${candidate.title}: This research highlights critical vulnerability surfaces in modern AI integrations. Practitioners should audit context isolation and enforce strict input validation across all model execution boundaries.`,
-          rationale: `Selected ${candidate.title} due to direct technical relevance to AI threat modeling and actionable defensive implications.`,
-          sources: [candidate.url],
-          topicTags: ['ai-security', 'vulnerability-research', 'threat-modeling']
-        });
-      }
+      console.log(`[WRITER] Generating post for: "${candidate.title}" via ${config.GEMINI_MODEL || 'google/gemini-2.5-flash'}...`);
+      const client = getClient();
+      const completion = await client.chat.completions.create({
+        model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: promptText },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 1200,
+      });
+      responseText = completion.choices[0]?.message?.content?.trim() || '';
     }
     const parsed = JSON.parse(responseText);
 

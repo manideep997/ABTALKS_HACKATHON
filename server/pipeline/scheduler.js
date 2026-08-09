@@ -60,8 +60,8 @@ async function runCycle(agentId = 'sable') {
     }
 
     // 2. Editorial Judgment
-    // Limit to batch size of 1 for minimum token reservation
-    const batch = candidates.slice(0, 1);
+    // Batch size of 5 candidates for thorough evaluation
+    const batch = candidates.slice(0, 5);
     const judgmentResponse = await judgeCandidates(batch, agentId);
 
     if (!judgmentResponse.success) {

@@ -158,33 +158,19 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
 
     // 2. OpenRouter (OpenAI SDK)
     if (!responseText) {
-      try {
-        console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) to ${config.GEMINI_MODEL} via OpenRouter...`);
-        const client = getClient();
-        const completion = await client.chat.completions.create({
-          model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: promptText },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.1,
-          max_tokens: 300,
-        });
-        responseText = completion.choices[0]?.message?.content?.trim() || '';
-      } catch (err) {
-        console.warn(`[JUDGMENT WARN] OpenRouter API error (${err.message}) — using heuristic fallback judgment.`);
-        // Resilient fallback judgment so cycle never crashes during evaluation
-        const candidate = candidates[0];
-        responseText = JSON.stringify({
-          judgments: [{
-            title: candidate.title,
-            score: 9.0,
-            verdict: 'accept',
-            reason: `Highly relevant security paper detailing technical attack vectors and practitioner implications for ${candidate.title}.`
-          }]
-        });
-      }
+      console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) to ${config.GEMINI_MODEL || 'google/gemini-2.5-flash'} via OpenRouter...`);
+      const client = getClient();
+      const completion = await client.chat.completions.create({
+        model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: promptText },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 1500,
+      });
+      responseText = completion.choices[0]?.message?.content?.trim() || '';
     }
     const parsed = JSON.parse(responseText);
     const rawJudgments = parsed.judgments || [];
