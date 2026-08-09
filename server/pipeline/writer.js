@@ -141,9 +141,20 @@ ${memoryText}
 function persistPostToDb(post) {
   const db = getDb();
   db.prepare(`
+    INSERT OR IGNORE INTO agents (id, name, domain, voice_notes, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    post.agentId || 'sable',
+    config.PERSONA.name,
+    config.PERSONA.domain,
+    config.PERSONA.voiceNotes,
+    new Date().toISOString()
+  );
+
+  db.prepare(`
     INSERT INTO posts (id, agent_id, created_at, text, rationale, sources_json, topic_tags_json, is_mock)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(post.id, post.agentId, post.createdAt, post.text, post.rationale,
+  `).run(post.id, post.agentId || 'sable', post.createdAt, post.text, post.rationale,
     JSON.stringify(post.sources), JSON.stringify(post.topicTags), post.isMock);
 }
 
