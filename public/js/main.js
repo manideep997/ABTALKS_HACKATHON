@@ -1,485 +1,503 @@
-/* main.js — Full UI controller for Sable Dashboard */
 'use strict';
 
-(function () {
+/* ═══════════════════════════════════════════════════════════════
+   SABLE — Extraordinary JS Controller
+   - Custom cursor tracking
+   - 3D card tilt via mousemove
+   - Magnetic buttons
+   - SVG score ring animation
+   - Scroll-reveal + stagger via IntersectionObserver
+   - Counter animation for stats
+   - All API endpoints wired up
+═══════════════════════════════════════════════════════════════ */
 
-  // ── DOM refs ────────────────────────────────────────────────────────────────
-  const btnInit        = document.getElementById('btn-init');
-  const btnInitFeed    = document.getElementById('btn-init-feed');
-  const btnTick        = document.getElementById('btn-tick');
-  const btnSimulate    = document.getElementById('btn-simulate');
-  const simBtnText     = document.getElementById('sim-btn-text');
-  const simSpinner     = document.getElementById('sim-spinner');
+const API_BASE     = '';
+const POLL_MS      = 20_000;
+const STORAGE_KEY  = 'sable_agent_id_v2';
+const PERSONA      = { name: 'Sable', domain: 'AI Security' };
 
-  const simTitle       = document.getElementById('sim-title');
-  const simSnippet     = document.getElementById('sim-snippet');
-  const simUrl         = document.getElementById('sim-url');
+const CRITERIA_META = [
+  { key: 'exploit_specificity',   label: 'Exploit Specificity',   weight: '30%' },
+  { key: 'ai_security_relevance', label: 'AI Security Relevance', weight: '30%' },
+  { key: 'practitioner_value',    label: 'Practitioner Value',    weight: '20%' },
+  { key: 'technical_rigor',       label: 'Technical Rigor',       weight: '20%' },
+];
 
-  const simResultBox   = document.getElementById('sim-result');
-  const simVerdictHdr  = document.getElementById('sim-verdict-header');
-  const simCriteria    = document.getElementById('sim-criteria');
-  const simReasonBlk   = document.getElementById('sim-reason-block');
-  const simTagsRow     = document.getElementById('sim-tags');
-  const simSourceInfo  = document.getElementById('sim-source-info');
-  const simPostBlock   = document.getElementById('sim-post-block');
-  const simEmpty       = document.getElementById('sim-empty');
+let agentId      = null;
+let pollTimer    = null;
+let isRefreshing = false;
 
-  const postsFeed      = document.getElementById('posts-feed');
-  const rejList        = document.getElementById('rejections-list');
-  const rejCount       = document.getElementById('rej-count');
+// ── Boot ──────────────────────────────────────────────────────
+async function boot() {
+  initCursor();
+  initScrollReveal();
+  initMagnetic();
+  initCardTilt();
 
-  const liveBadge      = document.getElementById('live-badge');
-  const liveDot        = document.getElementById('live-dot');
-  const liveLabel      = document.getElementById('live-label');
+  agentId = localStorage.getItem(STORAGE_KEY);
+  setStatus('loading', 'Connecting to agent…');
 
-  const presetAccept   = document.getElementById('preset-accept');
-  const presetMed      = document.getElementById('preset-reject-med');
-  const presetEth      = document.getElementById('preset-reject-eth');
-
-  const rpToggle       = document.getElementById('rp-toggle');
-  const rejPanel       = document.getElementById('rejection-panel');
-
-  const modalBackdrop  = document.getElementById('modal-backdrop');
-  const fcClose        = document.getElementById('fc-close');
-  const fcContent      = document.getElementById('fc-content');
-
-  const tabBtns        = document.querySelectorAll('.nav-tab');
-  const tabPanels      = document.querySelectorAll('.tab-panel');
-
-  // ── State ───────────────────────────────────────────────────────────────────
-  let rejectionStore = [];
-
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-  function esc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  if (!agentId) {
+    agentId = await initAgent();
+    if (!agentId) { setStatus('error', 'Connection failed'); return; }
+    localStorage.setItem(STORAGE_KEY, agentId);
   }
 
-  function fmtDate(iso) {
-    if (!iso) return '—';
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString('en-IN', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12: false });
-    } catch { return iso; }
+  setStatus('online', `agent/${agentId.slice(0, 8)}…`);
+  el('hero-agent-id').textContent = agentId.slice(0, 8) + '…';
+
+  await Promise.all([ loadFeed(true), loadStats(), loadRejections() ]);
+  pollTimer = setInterval(() => { loadFeed(false); loadStats(); }, POLL_MS);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function initAgent() {
+  try {
+    const data = await post('/api/agent/init', { persona: PERSONA });
+    return data.agentId || null;
+  } catch(e) { console.error('[SABLE] init failed', e); return null; }
+}
+
+// ── Feed ──────────────────────────────────────────────────────
+async function loadFeed(showSpinner = true) {
+  if (isRefreshing) return;
+  isRefreshing = true;
+  if (showSpinner) { setFeedState('loading'); setRefreshSpin(true); }
+
+  try {
+    const data  = await get(`/api/agent/feed?agentId=${agentId}`);
+    const posts = data.posts || [];
+    el('last-updated').textContent = 'Updated ' + nowTime();
+    if (posts.length === 0) { setFeedState('empty'); }
+    else { renderPosts(posts); setFeedState('posts'); }
+  } catch(e) {
+    setFeedState('empty');
+  } finally {
+    isRefreshing = false;
+    setRefreshSpin(false);
   }
+}
 
-  function barColor(score) {
-    if (score >= 7) return '#10b981';
-    if (score >= 4) return '#fbbf24';
-    return '#f43f5e';
-  }
-
-  // ── Tab Switching ────────────────────────────────────────────────────────────
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.tab;
-      tabBtns.forEach(b => b.classList.remove('active'));
-      tabPanels.forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(`tab-${target}`).classList.add('active');
-    });
-  });
-
-  // ── Rejection Panel Toggle ───────────────────────────────────────────────────
-  let rpCollapsed = false;
-  rpToggle.addEventListener('click', () => {
-    rpCollapsed = !rpCollapsed;
-    rejPanel.classList.toggle('collapsed', rpCollapsed);
-    rpToggle.textContent = rpCollapsed ? '›' : '‹';
-  });
-
-  // ── Dashboard Refresh ────────────────────────────────────────────────────────
-  async function refresh() {
-    try {
-      const [feedData, rejectionsData, statsData] = await Promise.all([
-        Telemetry.getFeed(),
-        Telemetry.getRejections(),
-        Telemetry.getStats(),
-      ]);
-      renderStats(statsData);
-      renderFeed(feedData);
-      renderRejections(rejectionsData);
-    } catch (err) {
-      console.error('[UI] Refresh failed:', err);
-    }
-  }
-
-  // ── Stats ────────────────────────────────────────────────────────────────────
-  function renderStats(stats) {
-    if (!stats) return;
-
-    // Header live status
-    const isLive = stats.scheduler_status === 'running';
-    liveDot.className = 'live-dot' + (isLive ? ' active' : '');
-    liveLabel.textContent = isLive ? 'Live' : (stats.scheduler_status || 'Offline');
-    liveBadge.className = 'live-badge' + (isLive ? ' online' : '');
-
-    // Hero floating cards
-    setText('sfc-posts', stats.total_posts ?? 0);
-    setText('sfc-rejected', stats.total_rejected ?? 0);
-    setText('sfc-status', stats.scheduler_status || '—');
-    const lastAt = stats.last_cycle_at ? fmtDate(stats.last_cycle_at) : '—';
-    setText('sfc-last', lastAt);
-
-    // Pipeline tab telemetry
-    setText('pstat-scheduler', stats.scheduler_status || '—');
-    setText('pstat-result', stats.last_cycle_result || '—');
-    setText('pstat-total', stats.total_posts ?? 0);
-    setText('pstat-real', stats.llm_posts ?? 0);
-    setText('pstat-mock', stats.mock_posts ?? 0);
-    setText('pstat-rejected', stats.total_rejected ?? 0);
-  }
-
-  function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = String(val);
-  }
-
-  // ── Feed ─────────────────────────────────────────────────────────────────────
-  function renderFeed(feedData) {
-    const posts = (feedData && Array.isArray(feedData.posts)) ? feedData.posts : [];
-    if (posts.length === 0) {
-      postsFeed.innerHTML = `
-        <div class="empty-feed-msg">
-          <div class="efm-icon">◉</div>
-          <p>No posts yet. Boot the agent and wait for a cycle to complete.</p>
-          <button class="hdr-btn" id="btn-init-feed-inner">Boot Agent Scheduler</button>
-        </div>`;
-      document.getElementById('btn-init-feed-inner')?.addEventListener('click', doInit);
-      return;
-    }
-
-    postsFeed.innerHTML = '';
-    posts.forEach(post => {
-      const card = document.createElement('div');
-      card.className = 'post-card';
-      const isMock = post.isMock || post.is_mock;
-      const sources = Array.isArray(post.sources) ? post.sources : (post.sources ? [post.sources] : []);
-      const tags = Array.isArray(post.topicTags) ? post.topicTags : (Array.isArray(post.topic_tags) ? post.topic_tags : []);
-
-      card.innerHTML = `
-        <div class="pc-header">
-          <span class="pc-badge ${isMock ? 'mock' : 'llm'}">${isMock ? 'MOCK' : 'LLM VALID'}</span>
-          <span class="pc-date">${fmtDate(post.createdAt || post.created_at)}</span>
-        </div>
-        <div>
-          <div class="pc-label-row"><span class="pc-lbl">TITLE</span></div>
-          <p class="pc-text">${esc(post.text)}</p>
-        </div>
-        ${post.rationale ? `
-        <div class="pc-rationale">
-          <strong>RATIONALE</strong>
-          ${esc(post.rationale)}
-        </div>` : ''}
-        <div class="pc-footer">
-          ${sources.length ? `
-          <div class="pc-sources">
-            ${sources.map(s => `<a href="${esc(s)}" target="_blank" class="pc-source-link" rel="noopener">↗ ${esc(s.replace(/^https?:\/\/(www\.)?/,'').substring(0,50))}…</a>`).join('')}
-          </div>` : ''}
-          ${tags.length ? `
-          <div class="pc-tags">
-            ${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}
-          </div>` : ''}
-        </div>`;
-      postsFeed.appendChild(card);
-    });
-  }
-
-  // ── Rejections ───────────────────────────────────────────────────────────────
-  function renderRejections(data) {
-    const items = Array.isArray(data) ? data : (data && Array.isArray(data.rejections) ? data.rejections : []);
-    rejectionStore = items;
-    if (rejCount) rejCount.textContent = items.length;
-
-    if (items.length === 0) {
-      rejList.innerHTML = '<p class="rp-empty">No rejections yet.<br/>Run a cycle or simulate a topic.</p>';
-      return;
-    }
-
-    rejList.innerHTML = '';
-    items.slice(0, 40).forEach((r, idx) => {
-      const el = document.createElement('div');
-      el.className = 'rej-item';
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      el.innerHTML = `
-        <p class="rej-title">${esc(r.title)}</p>
-        <div class="rej-meta">
-          <span class="rej-score">Score ${r.score ?? '?'}/10</span>
-          <span class="rej-hint">Click to view →</span>
-        </div>`;
-      el.addEventListener('click', () => openFlashcard(idx));
-      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openFlashcard(idx); });
-      rejList.appendChild(el);
-    });
-  }
-
-  // ── Rejection Flashcard Modal ─────────────────────────────────────────────────
-  function openFlashcard(idx) {
-    const r = rejectionStore[idx];
-    if (!r) return;
-
-    const score = r.score ?? 0;
-    const verdictLabel = score >= 6 ? 'ACCEPT' : 'REJECT';
-    const verdictClass = score >= 6 ? 'accept' : 'reject';
-
-    // Build criteria HTML if available (only from simulate results, not DB items)
-    let criteriaHtml = '';
-    const criteria = r.criteria;
-    if (criteria) {
-      const rows = [
-        { label: 'Exploit Specificity', key: 'exploit_specificity', weight: '30%' },
-        { label: 'AI Security Relevance', key: 'ai_security_relevance', weight: '30%' },
-        { label: 'Practitioner Value', key: 'practitioner_value', weight: '20%' },
-        { label: 'Technical Rigor', key: 'technical_rigor', weight: '20%' },
-      ].map(c => {
-        const s = criteria[c.key] ?? 0;
-        const pct = (s / 10 * 100).toFixed(0);
-        const color = barColor(s);
-        return `
-          <div class="fc-criterion">
-            <div class="fcc-header">
-              <span class="fcc-label">${c.label}</span>
-              <div style="display:flex;gap:8px;align-items:center">
-                <span class="fcc-weight">${c.weight}</span>
-                <span class="fcc-score" style="color:${color}">${s}/10</span>
-              </div>
-            </div>
-            <div class="fcc-bar">
-              <div class="fcc-fill" style="width:${pct}%;background:${color}"></div>
-            </div>
-          </div>`;
-      }).join('');
-      criteriaHtml = `
-        <p class="fc-section-title" style="margin-top:24px;">SCORING CRITERIA</p>
-        <div class="fc-criteria">${rows}</div>`;
-    }
-
-    const tags = Array.isArray(r.topic_tags) ? r.topic_tags : (Array.isArray(r.topicTags) ? r.topicTags : []);
-    const tagsHtml = tags.length ? `
-      <p class="fc-section-title" style="margin-top:24px;">TOPIC TAGS</p>
-      <div class="fc-tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : '';
-
-    const urlDisplay = r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url.substring(0, 60))}${r.url.length > 60 ? '…' : ''}</a>` : 'N/A';
-
-    fcContent.innerHTML = `
-      <p class="fc-eyebrow">PAPER EVALUATION REPORT · REJECTED</p>
-      <h2 class="fc-title">${esc(r.title)}</h2>
-      <div class="fc-verdict-row">
-        <span class="fc-verdict-badge ${verdictClass}">${verdictLabel}</span>
-        <div>
-          <div class="fc-score-big ${verdictClass}">${score}/10</div>
-          <div class="fc-score-label">Overall Score</div>
+function renderPosts(posts) {
+  const grid = el('feed-posts');
+  grid.innerHTML = '';
+  posts.forEach((post) => {
+    const card = document.createElement('article');
+    card.className = 'post-card stagger';
+    const src  = (post.sources || [])[0] || null;
+    const host = src ? (() => { try { return new URL(src).hostname.replace('www.',''); } catch { return src; } })() : null;
+    const tags = (post.topicTags || []).slice(0, 3);
+    card.innerHTML = `
+      <div class="post-meta">
+        <span class="post-time">${fmtDate(post.createdAt)}</span>
+        ${post.isMock ? '<span class="post-badge">Mock</span>' : ''}
+      </div>
+      <p class="post-text">${esc(post.text)}</p>
+      <div class="post-footer">
+        <div class="post-tags">${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${src ? `<a class="post-source-link" href="${esc(src)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(host)}</a>` : ''}
+          <button class="read-more-btn">Read more</button>
         </div>
       </div>
+    `;
+    const open = () => openPostModal(post);
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', e => { if(e.key === 'Enter') open(); });
+    card.querySelector('.read-more-btn').addEventListener('click', e => { e.stopPropagation(); open(); });
+    grid.appendChild(card);
+  });
 
-      ${criteriaHtml}
+  // Re-apply scroll reveal to new cards
+  setTimeout(() => {
+    grid.querySelectorAll('.stagger').forEach((el, i) => {
+      setTimeout(() => el.classList.add('visible'), i * 60);
+    });
+  }, 50);
 
-      <p class="fc-section-title" style="margin-top:${criteria ? '28px' : '0'};">REJECTION REASON</p>
-      <p class="fc-reason">${esc(r.reason || 'No reason recorded.')}</p>
+  // Re-apply 3D tilt to new cards
+  grid.querySelectorAll('.post-card').forEach(applyCardTilt);
+}
 
-      <div class="fc-meta">
-        <div class="fc-meta-row">
-          <span class="fc-meta-key">URL</span>
-          <span class="fc-meta-val">${urlDisplay}</span>
-        </div>
-        <div class="fc-meta-row">
-          <span class="fc-meta-key">Evaluated</span>
-          <span class="fc-meta-val">${fmtDate(r.scored_at)}</span>
-        </div>
+function setFeedState(state) {
+  el('feed-loading').style.display = state === 'loading' ? '' : 'none';
+  el('feed-empty').style.display   = state === 'empty'   ? '' : 'none';
+  el('feed-posts').style.display   = state === 'posts'   ? '' : 'none';
+}
+
+// ── Stats ─────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const d = await get(`/api/agent/stats?agentId=${agentId}`);
+    animateCounter(el('stat-total'),    d.total_posts      ?? 0);
+    animateCounter(el('stat-real'),     d.real_llm_posts   ?? 0);
+    animateCounter(el('stat-rejected'), d.total_rejected   ?? 0);
+    el('stat-scheduler').textContent  = d.scheduler_status === 'running' ? '● running' : (d.scheduler_status || '—');
+    el('stat-last-cycle').textContent = d.last_cycle_at ? fmtDate(d.last_cycle_at) : '—';
+    // Hero stats
+    animateCounter(el('hero-stat-posts'),    d.total_posts    ?? 0);
+    animateCounter(el('hero-stat-rejected'), d.total_rejected ?? 0);
+    el('hero-scheduler-status').textContent = d.scheduler_status === 'running' ? 'Scheduler: running' : (d.scheduler_status || '—');
+  } catch(e) { /* silent */ }
+}
+
+function animateCounter(elRef, target) {
+  if (!elRef || isNaN(target)) return;
+  const current = parseInt(elRef.textContent) || 0;
+  if (current === target) return;
+  const duration = 800;
+  const start    = performance.now();
+  function step(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased    = 1 - Math.pow(1 - progress, 3);
+    elRef.textContent = Math.round(current + (target - current) * eased);
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── Rejections ────────────────────────────────────────────────
+async function loadRejections() {
+  el('rejections-loading').style.display = '';
+  el('rejections-list').style.display    = 'none';
+  el('rejections-empty').style.display   = 'none';
+  try {
+    const rows = await get(`/api/agent/rejections?agentId=${agentId}`);
+    el('rejections-loading').style.display = 'none';
+    if (!rows || rows.length === 0) { el('rejections-empty').style.display = ''; return; }
+    const list = el('rejections-list');
+    list.innerHTML = '';
+    rows.slice(0, 15).forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'rejection-item';
+      item.innerHTML = `
+        <div class="rejection-title">${esc(r.title || 'Untitled')}</div>
+        <div class="rejection-meta">
+          <span class="rejection-score">Score: ${r.score ?? '?'}/10</span>
+          <span class="rejection-reason">${esc(r.reason || '')}</span>
+        </div>`;
+      list.appendChild(item);
+    });
+    list.style.display = '';
+  } catch(e) {
+    el('rejections-loading').innerHTML = '<p class="intel-muted">Could not load rejection log.</p>';
+  }
+}
+
+// ── Editorial Console Simulation ──────────────────────────────
+async function runSimulation() {
+  const title   = el('sim-title').value.trim();
+  const url     = el('sim-url').value.trim();
+  const snippet = el('sim-abstract').value.trim();
+  if (!title) { el('sim-title').focus(); return; }
+
+  const btn = el('btn-simulate');
+  btn.disabled = true;
+  el('sim-btn-text').style.display    = 'none';
+  el('sim-btn-loading').style.display = '';
+  el('sim-result').style.display      = 'none';
+
+  try {
+    const data = await post('/api/agent/simulate', {
+      title,
+      url:     url     || undefined,
+      snippet: snippet || undefined,
+    });
+    renderSimResult(data, url);
+    if (data.verdict === 'accept') {
+      setTimeout(() => loadFeed(false), 1500);
+      await loadStats();
+    }
+  } catch(e) {
+    renderSimError(e.message || 'Evaluation failed');
+  } finally {
+    btn.disabled = false;
+    el('sim-btn-text').style.display    = '';
+    el('sim-btn-loading').style.display = 'none';
+  }
+}
+
+function renderSimResult(data, fallbackUrl) {
+  const verdict  = data.verdict || 'reject';
+  const score    = typeof data.score === 'number' ? data.score : 0;
+  const scoreStr = score.toFixed(1);
+  const criteria = data.criteria || {};
+  const reason   = data.reason   || '';
+  const srcUrl   = data.resolvedUrl || fallbackUrl || '';
+
+  // Verdict
+  el('sim-verdict-icon').textContent = verdict === 'accept' ? '✓' : '✗';
+  const vtxt = el('sim-verdict-text');
+  vtxt.className = `sim-verdict-text ${verdict}`;
+  vtxt.textContent = verdict === 'accept' ? 'ACCEPTED' : 'REJECTED';
+
+  // Score number
+  el('sim-score-number').textContent = scoreStr;
+
+  // SVG ring animation
+  const circle = el('score-circle');
+  const circumference = 327;
+  const offset = circumference - (score / 10) * circumference;
+  setTimeout(() => { circle.style.strokeDashoffset = offset; }, 100);
+
+  // Criteria bars
+  const barsEl = el('criteria-bars');
+  barsEl.innerHTML = '';
+  CRITERIA_META.forEach(c => {
+    const val = criteria[c.key];
+    const pct = val != null ? Math.round((val / 10) * 100) : 0;
+    const row = document.createElement('div');
+    row.className = 'crit-row';
+    row.innerHTML = `
+      <div class="crit-header">
+        <span class="crit-name">${esc(c.label)}</span>
+        <span class="crit-score">${val != null ? val + '/10' : '—'}</span>
       </div>
+      <div class="crit-track">
+        <div class="crit-fill" style="width:0%" data-target="${pct}"></div>
+      </div>
+      <div class="crit-weight">${c.weight} weight</div>
+    `;
+    barsEl.appendChild(row);
+  });
 
-      ${tagsHtml}`;
+  // Animate bars after next frame
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    barsEl.querySelectorAll('.crit-fill').forEach(f => {
+      f.style.width = f.dataset.target + '%';
+    });
+  }));
 
-    modalBackdrop.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+  // Source link
+  const srcLink = el('sim-source-link');
+  if (srcUrl) {
+    srcLink.href = srcUrl;
+    srcLink.textContent = '↗ ' + (srcUrl.length > 60 ? srcUrl.substring(0, 60) + '…' : srcUrl);
+    srcLink.style.display = '';
+  } else {
+    srcLink.style.display = 'none';
   }
 
-  function closeModal() {
-    modalBackdrop.classList.add('hidden');
-    document.body.style.overflow = '';
+  // Reason
+  el('sim-reason-text').textContent = reason;
+
+  // Post (if accepted)
+  const ps = el('sim-post-section');
+  if (verdict === 'accept' && data.post) {
+    el('sim-generated-post').textContent = data.post.text || '';
+    el('sim-post-tags').innerHTML = (data.post.topicTags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    const sources = data.post.sources || [];
+    el('sim-post-source').innerHTML = sources.length
+      ? `<a href="${esc(sources[0])}" target="_blank" rel="noopener">↗ Source</a>`
+      : '';
+    ps.style.display = '';
+  } else {
+    ps.style.display = 'none';
   }
 
-  fcClose.addEventListener('click', closeModal);
-  modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
+  // Show + scroll
+  el('sim-result').style.display = '';
+  setTimeout(() => el('sim-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+}
+
+function renderSimError(msg) {
+  el('sim-verdict-icon').textContent = '⚠';
+  el('sim-verdict-text').className   = 'sim-verdict-text reject';
+  el('sim-verdict-text').textContent = 'ERROR';
+  el('sim-score-number').textContent = '—';
+  el('criteria-bars').innerHTML      = '';
+  el('sim-source-link').style.display = 'none';
+  el('sim-reason-text').textContent  = msg;
+  el('sim-post-section').style.display = 'none';
+  el('sim-result').style.display     = '';
+}
+
+// ── Post Modal ────────────────────────────────────────────────
+function openPostModal(post) {
+  const sources = post.sources || [];
+  const tags    = post.topicTags || [];
+  el('modal-content').innerHTML = `
+    <span class="modal-time">${fmtDate(post.createdAt)}${post.isMock ? ' · Mock' : ''}</span>
+    <div class="post-tags" style="margin-bottom:18px">
+      ${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+    </div>
+    <p class="modal-post-text">${esc(post.text)}</p>
+    ${post.rationale ? `
+    <div class="modal-sec-label">Editorial Rationale</div>
+    <p class="modal-rationale-text">${esc(post.rationale)}</p>` : ''}
+    ${sources.length ? `
+    <div class="modal-sec-label">Sources</div>
+    <div class="modal-sources">
+      ${sources.map(s => {
+        let host = s;
+        try { host = new URL(s).hostname.replace('www.',''); } catch {}
+        return `<a class="modal-source-link" href="${esc(s)}" target="_blank" rel="noopener">
+          <span class="modal-source-arrow">↗</span>
+          <span>${esc(host)} — ${esc(s)}</span>
+        </a>`;
+      }).join('')}
+    </div>` : ''}
+  `;
+  el('post-modal').style.display = 'flex';
+  el('post-modal').setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  el('post-modal').style.display = 'none';
+  el('post-modal').setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+// ── Custom Cursor ─────────────────────────────────────────────
+function initCursor() {
+  const cursor = el('cursor');
+  const dot    = el('cursor-dot');
+  let cx = 0, cy = 0;
+
+  document.addEventListener('mousemove', e => {
+    cx = e.clientX; cy = e.clientY;
+    dot.style.left    = cx + 'px';
+    dot.style.top     = cy + 'px';
+    cursor.style.left = cx + 'px';
+    cursor.style.top  = cy + 'px';
+  });
+
+  document.addEventListener('mousedown', () => cursor.style.transform = 'translate(-50%,-50%) scale(0.8)');
+  document.addEventListener('mouseup',   () => cursor.style.transform = 'translate(-50%,-50%) scale(1)');
+}
+
+// ── 3D Card Tilt ──────────────────────────────────────────────
+function initCardTilt() {
+  document.querySelectorAll('.post-card, .live-stat-card, .criteria-card').forEach(applyCardTilt);
+}
+
+function applyCardTilt(card) {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width  - 0.5) * 12;
+    const y = ((e.clientY - rect.top)  / rect.height - 0.5) * -12;
+    card.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg) translateZ(6px)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = '';
+    card.style.transition = 'transform 500ms var(--ease-out-expo), background 200ms, border-color 200ms, box-shadow 300ms';
+    setTimeout(() => { card.style.transition = ''; }, 500);
+  });
+}
+
+// ── Magnetic Buttons ──────────────────────────────────────────
+function initMagnetic() {
+  document.querySelectorAll('[data-magnetic]').forEach(btn => {
+    btn.addEventListener('mousemove', e => {
+      const rect = btn.getBoundingClientRect();
+      const dx = (e.clientX - rect.left - rect.width  / 2) * 0.35;
+      const dy = (e.clientY - rect.top  - rect.height / 2) * 0.35;
+      btn.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = '';
+      btn.style.transition = 'transform 500ms var(--ease-out-back), box-shadow 0.3s ease';
+      setTimeout(() => { btn.style.transition = ''; }, 500);
+    });
+  });
+}
+
+// ── Scroll Reveal ─────────────────────────────────────────────
+function initScrollReveal() {
+  const sectionObs = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        // Trigger stagger children
+        entry.target.querySelectorAll('.stagger').forEach((el, i) => {
+          setTimeout(() => el.classList.add('visible'), i * 70);
+        });
+        sectionObs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.06, rootMargin: '0px 0px -30px 0px' });
+
+  document.querySelectorAll('.reveal-section').forEach(s => sectionObs.observe(s));
+}
+
+// ── Events ────────────────────────────────────────────────────
+function wireEvents() {
+  el('btn-refresh').addEventListener('click', () => loadFeed(true));
+  el('btn-refresh-feed').addEventListener('click', () => loadFeed(true));
+  el('btn-refresh-empty').addEventListener('click', () => loadFeed(true));
+
+  el('btn-stats-refresh').addEventListener('click', async () => {
+    el('btn-stats-refresh').classList.add('spinning');
+    await loadStats();
+    el('btn-stats-refresh').classList.remove('spinning');
+  });
+
+  el('btn-rejections-refresh').addEventListener('click', async () => {
+    el('btn-rejections-refresh').classList.add('spinning');
+    await loadRejections();
+    el('btn-rejections-refresh').classList.remove('spinning');
+  });
+
+  el('btn-simulate').addEventListener('click', runSimulation);
+  el('sim-title').addEventListener('keydown', e => { if (e.key === 'Enter') runSimulation(); });
+  el('sim-url').addEventListener('keydown',   e => { if (e.key === 'Enter') runSimulation(); });
+
+  el('modal-close').addEventListener('click', closeModal);
+  el('post-modal').addEventListener('click', e => { if (e.target === el('post-modal')) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+}
 
-  // ── Simulate Console ──────────────────────────────────────────────────────────
-  btnSimulate.addEventListener('click', async () => {
-    const title   = simTitle.value.trim();
-    if (!title) { simTitle.focus(); simTitle.style.borderColor = 'var(--red)'; return; }
-    simTitle.style.borderColor = '';
+// ── Helpers ───────────────────────────────────────────────────
+function el(id) { return document.getElementById(id); }
 
-    const snippet = simSnippet.value.trim();
-    const url     = simUrl.value.trim();
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-    // Loading state
-    btnSimulate.disabled = true;
-    simBtnText.textContent = 'Fetching & Evaluating…';
-    simSpinner.classList.remove('hidden');
-    simResultBox.classList.add('hidden');
-    simEmpty.classList.remove('hidden');
-    simEmpty.innerHTML = `<div class="empty-icon" style="animation:spin 1s linear infinite">⟳</div><p>Sable is fetching the paper from the web and applying its 4-criteria scoring matrix…</p>`;
+function nowTime() {
+  return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
 
-    try {
-      const res = await Telemetry.simulate({ title, snippet, url });
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+  } catch { return iso; }
+}
 
-      simEmpty.classList.add('hidden');
-      simResultBox.classList.remove('hidden');
+function pad(n) { return String(n).padStart(2, '0'); }
 
-      if (res.error) {
-        simVerdictHdr.innerHTML = `<span class="svh-badge reject">ERROR</span><p style="color:var(--red);font-size:13px;margin-left:8px">${esc(res.error)}</p>`;
-        simCriteria.classList.add('hidden');
-        simReasonBlk.classList.add('hidden');
-        simTagsRow.classList.add('hidden');
-        simSourceInfo.classList.add('hidden');
-        simPostBlock.classList.add('hidden');
-        return;
-      }
+function setStatus(state, text) {
+  el('status-dot').className = `status-dot ${state}`;
+  el('status-text').textContent = text;
+}
 
-      const accepted = res.verdict === 'accept';
-      const score    = typeof res.score === 'number' ? res.score : '?';
+function setRefreshSpin(on) {
+  el('refresh-icon').classList.toggle('spinning', on);
+}
 
-      // Verdict header
-      simVerdictHdr.innerHTML = `
-        <span class="svh-badge ${accepted ? 'accept' : 'reject'}">${accepted ? '✓ ACCEPTED' : '✕ REJECTED'}</span>
-        <div>
-          <div class="svh-score ${accepted ? 'accept' : 'reject'}">${typeof score === 'number' ? score.toFixed(1) : score} / 10</div>
-          <div class="svh-label">Overall Score (4-Criteria Matrix)</div>
-        </div>`;
+async function get(path) {
+  const r = await fetch(API_BASE + path);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 
-      // Criteria breakdown
-      if (res.criteria) {
-        const crits = [
-          { label: 'Exploit Specificity',    key: 'exploit_specificity',    w: '30%' },
-          { label: 'AI Security Relevance',  key: 'ai_security_relevance',  w: '30%' },
-          { label: 'Practitioner Value',     key: 'practitioner_value',     w: '20%' },
-          { label: 'Technical Rigor',        key: 'technical_rigor',        w: '20%' },
-        ];
-        simCriteria.innerHTML = `<div class="sc-title">SCORING BREAKDOWN</div>` + crits.map(c => {
-          const s   = res.criteria[c.key] ?? 0;
-          const pct = (s / 10 * 100).toFixed(0);
-          const col = barColor(s);
-          return `
-            <div class="criterion-row">
-              <span class="cr-label">${c.label}</span>
-              <span class="cr-weight" style="font-size:10px;color:var(--text-dim);font-family:var(--mono);width:30px">${c.w}</span>
-              <div class="cr-bar-wrap"><div class="cr-bar" style="width:${pct}%;background:${col}"></div></div>
-              <span class="cr-score">${s}/10</span>
-            </div>`;
-        }).join('');
-        simCriteria.classList.remove('hidden');
-      } else {
-        simCriteria.classList.add('hidden');
-      }
-
-      // Reason
-      if (res.reason) {
-        simReasonBlk.innerHTML = `<span class="sr-label">EDITORIAL REASON</span><p class="sr-text">${esc(res.reason)}</p>`;
-        simReasonBlk.classList.remove('hidden');
-      } else {
-        simReasonBlk.classList.add('hidden');
-      }
-
-      // Tags
-      if (res.topicTags && res.topicTags.length) {
-        simTagsRow.innerHTML = res.topicTags.map(t => `<span class="stag">${esc(t)}</span>`).join('');
-        simTagsRow.classList.remove('hidden');
-      } else {
-        simTagsRow.classList.add('hidden');
-      }
-
-      // Source info
-      if (res.resolvedUrl) {
-        const preview = res.fetchedContent ? `<br/><span style="color:var(--text-dim)">${esc(res.fetchedContent.substring(0, 200))}…</span>` : '';
-        simSourceInfo.innerHTML = `Source: <a href="${esc(res.resolvedUrl)}" target="_blank" rel="noopener">${esc(res.resolvedUrl.substring(0, 60))}${res.resolvedUrl.length > 60 ? '…' : ''}</a>${preview}`;
-        simSourceInfo.classList.remove('hidden');
-      } else {
-        simSourceInfo.classList.add('hidden');
-      }
-
-      // Generated post
-      if (accepted && res.post) {
-        simPostBlock.innerHTML = `<span class="spb-label">✓ GENERATED POST</span><p class="spb-text">${esc(res.post.text)}</p>`;
-        simPostBlock.classList.remove('hidden');
-        refresh(); // refresh feed to show new post
-      } else {
-        simPostBlock.classList.add('hidden');
-      }
-
-    } catch (err) {
-      simEmpty.classList.add('hidden');
-      simResultBox.classList.remove('hidden');
-      simVerdictHdr.innerHTML = `<span class="svh-badge reject">NETWORK ERROR</span><p style="color:var(--red-dim);font-size:13px;margin-left:8px">${esc(err.message)}</p>`;
-      simCriteria.classList.add('hidden');
-      simReasonBlk.classList.add('hidden');
-      simTagsRow.classList.add('hidden');
-      simSourceInfo.classList.add('hidden');
-      simPostBlock.classList.add('hidden');
-    } finally {
-      btnSimulate.disabled = false;
-      simBtnText.textContent = 'Submit to Sable';
-      simSpinner.classList.add('hidden');
-    }
+async function post(path, body) {
+  const r = await fetch(API_BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+  return d;
+}
 
-  // ── Presets ──────────────────────────────────────────────────────────────────
-  presetAccept.addEventListener('click', () => {
-    simTitle.value   = 'Direct Jailbreaks and Sandbox Escape Exploits in Multi-Agent LLM Systems';
-    simSnippet.value = 'We demonstrate that multi-agent LLM frameworks are vulnerable to system prompt override attacks. An adversary can craft malicious tool outputs that bypass environment isolation layers, enabling local OS shell command execution inside the host sandbox. We confirm exploitation on GPT-4, Claude-3, and Gemini-Ultra agent configurations.';
-    simUrl.value     = 'https://arxiv.org/abs/2402.05162';
-    clearSimResult();
-  });
-
-  presetMed.addEventListener('click', () => {
-    simTitle.value   = 'Tracing the Heart: Heart-Failure Feature Engineering via EHR Pipeline';
-    simSnippet.value = 'This research proposes an automated pipeline for clinical feature extraction from EHR records. It uses gradient boosting to predict cardiac arrest timelines showing 94.3% accuracy on private patient datasets from three hospitals in the UK.';
-    simUrl.value     = 'https://arxiv.org/abs/2402.09876';
-    clearSimResult();
-  });
-
-  presetEth.addEventListener('click', () => {
-    simTitle.value   = 'A Mechanism-Design Model for Participatory Governance of Deployed AI Agents';
-    simSnippet.value = 'This paper presents a social welfare framework for democratic policy guidelines for deployed AI systems. It discusses multi-stakeholder consensus building, ethical trade-offs between utility and fairness, and proposes a voting mechanism for resolving disagreements in AI deployment decisions.';
-    simUrl.value     = 'https://arxiv.org/abs/2402.01234';
-    clearSimResult();
-  });
-
-  function clearSimResult() {
-    simResultBox.classList.add('hidden');
-    simEmpty.classList.remove('hidden');
-    simEmpty.innerHTML = `<div class="empty-icon">◈</div><p>Submit a paper above to see Sable's editorial judgment with full scoring breakdown.</p>`;
-    simTitle.focus();
-  }
-
-  // ── Boot & Tick ──────────────────────────────────────────────────────────────
-  async function doInit() {
-    const b = btnInit;
-    if (b) { b.disabled = true; b.textContent = 'Booting…'; }
-    try {
-      await Telemetry.initAgent();
-      await refresh();
-    } catch (e) { alert('Init failed: ' + e.message); }
-    finally {
-      if (b) { b.textContent = 'Boot Agent'; b.disabled = false; }
-    }
-  }
-
-  btnInit.addEventListener('click', doInit);
-  if (btnInitFeed) btnInitFeed.addEventListener('click', doInit);
-
-  btnTick.addEventListener('click', async () => {
-    btnTick.disabled = true;
-    btnTick.textContent = 'Scanning…';
-    try {
-      const res = await Telemetry.triggerTick();
-      if (res.status === 'skipped') alert('Cycle already running — try again shortly.');
-      await refresh();
-    } catch (e) { alert('Tick failed: ' + e.message); }
-    finally { btnTick.textContent = 'Force Scan'; btnTick.disabled = false; }
-  });
-
-  // ── Auto-refresh every 30s ───────────────────────────────────────────────────
-  refresh();
-  setInterval(refresh, 30_000);
-
-})();
+// ── Start ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  wireEvents();
+  boot();
+});

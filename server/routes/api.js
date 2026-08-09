@@ -2,51 +2,51 @@
 
 const express = require('express');
 const router = express.Router();
+const { randomUUID } = require('crypto');
 const config = require('../config');
 const { getDb } = require('../db/database');
 const { runCycle, startScheduler, getSchedulerState } = require('../pipeline/scheduler');
 const { judgeCandidates } = require('../pipeline/judgment');
 const { getRollingMemory } = require('../pipeline/memory');
 const { generatePost } = require('../pipeline/writer');
-const { fetchWebContent } = require('../utils/webFetcher');
+const { fetchWebContent, resolveTitleToUrl } = require('../utils/webFetcher');
 
 /**
  * POST /api/agent/init
- * Initializes the agent record in SQLite database, starts background cron scheduler,
- * and executes cycle #1 immediately so that the feed is populated on first inspection.
+ * Evaluator spec: accepts { persona: { name, domain } }, returns { agentId }.
+ * Generates a unique agentId per run, stores agent with provided persona,
+ * starts the scheduler, and runs cycle #1 immediately.
  */
 router.post('/init', async (req, res) => {
   const db = getDb();
-  const agentId = config.PERSONA.id;
   const now = new Date().toISOString();
 
-  try {
-    // 1. Ensure Agent Profile exists in database
-    const agentExists = db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId);
-    if (!agentExists) {
-      db.prepare(`
-        INSERT INTO agents (id, name, domain, voice_notes, created_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        agentId,
-        config.PERSONA.name,
-        config.PERSONA.domain,
-        config.PERSONA.voiceNotes,
-        now
-      );
-      console.log(`[API] Agent profile "${agentId}" created in SQLite.`);
-    }
+  // Accept persona from request body; fall back to config defaults
+  const personaBody = (req.body || {}).persona || {};
+  const agentName   = (personaBody.name   || config.PERSONA.name).trim();
+  const agentDomain = (personaBody.domain || config.PERSONA.domain).trim();
 
-    // 2. Start background in-process cron
+  // Generate a unique agentId for this evaluation run
+  const agentId = randomUUID();
+
+  try {
+    // 1. Insert agent profile with dynamic persona
+    db.prepare(`
+      INSERT INTO agents (id, name, domain, voice_notes, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(agentId, agentName, agentDomain, config.PERSONA.voiceNotes, now);
+    console.log(`[API] Agent profile created — id=${agentId} name="${agentName}" domain="${agentDomain}"`);
+
+    // 2. Start background in-process cron for this agentId
     startScheduler(agentId);
 
     // 3. Immediately execute cycle #1 synchronously
     console.log('[API] /init triggering immediate cycle #1 execution...');
     const cycleOutcome = await runCycle(agentId);
 
+    // Evaluator-required shape: { agentId }. Extra fields are allowed.
     return res.json({
-      success: true,
-      message: 'Agent initialized, scheduler started, cycle #1 executed.',
+      agentId,
       cycleOutcome,
     });
   } catch (err) {
@@ -56,8 +56,10 @@ router.post('/init', async (req, res) => {
 });
 
 /**
- * GET /api/agent/feed
- * Read-only feed returning published posts for a specific agent.
+ * GET /api/agent/feed?agentId=<id>
+ * Evaluator spec: returns { posts: [ { id, createdAt, text, rationale, sources } ] }
+ * in reverse chronological order. Returns { posts: [] } when empty — never an error.
+ * Extra fields (agentId, topicTags, isMock) are kept for dashboard use.
  */
 router.get('/feed', (req, res) => {
   const db = getDb();
@@ -77,13 +79,16 @@ router.get('/feed', (req, res) => {
       try { sources = JSON.parse(row.sources_json || '[]'); } catch (_e) {}
       try { topicTags = JSON.parse(row.topic_tags_json || '[]'); } catch (_e) {}
 
+      // Evaluator-required fields: id, createdAt, text, rationale, sources
+      // Extra dashboard fields: agentId, topicTags, isMock
       return {
         id: row.id,
+        createdAt: row.created_at,   // ISO 8601 UTC string ending in Z
+        text: row.text || '',
+        rationale: row.rationale || '',
+        sources: Array.isArray(sources) ? sources : [],
+        // dashboard extras
         agentId: row.agent_id,
-        createdAt: row.created_at,
-        text: row.text,
-        rationale: row.rationale,
-        sources,
         topicTags,
         isMock: row.is_mock === 1,
       };
@@ -193,8 +198,10 @@ router.get('/stats', (req, res) => {
 
 /**
  * POST /api/agent/simulate
- * Accepts { title, snippet, url }. Fetches the URL content for richer AI context,
- * runs the 4-criteria judgment matrix, and optionally generates a post.
+ * Accepts { title, snippet, url }.
+ * - If URL provided: fetch that exact URL.
+ * - If only title provided: resolve to a single real paper URL via OpenAlex/S2, then fetch it.
+ * - If resolution fails: return explicit error rather than judging on title alone.
  */
 router.post('/simulate', async (req, res) => {
   const { title, snippet, url } = req.body || {};
@@ -203,15 +210,30 @@ router.post('/simulate', async (req, res) => {
   }
 
   const agentId = config.PERSONA.id;
-  const targetUrl = url && url.trim().startsWith('http')
-    ? url.trim()
-    : `https://arxiv.org/search/?query=${encodeURIComponent(title.trim())}&searchtype=all`;
+  let targetUrl = url && url.trim().startsWith('http') ? url.trim() : null;
 
-  // Fetch web content for richer judgment context
+  // Title-only path: resolve to one specific real paper URL
+  if (!targetUrl) {
+    console.log(`[SIMULATE] No URL provided — resolving title to real paper URL...`);
+    try {
+      targetUrl = await resolveTitleToUrl(title.trim());
+    } catch (e) {
+      console.log(`[SIMULATE] Title resolution error: ${e.message}`);
+    }
+
+    if (!targetUrl) {
+      return res.status(404).json({
+        error: `Could not resolve "${title.trim()}" to a specific paper. Try providing the paper's direct URL (arXiv, DOI, etc.) for accurate evaluation.`,
+      });
+    }
+    console.log(`[SIMULATE] Resolved title to: ${targetUrl}`);
+  }
+
+  // Fetch actual content from the resolved URL
   console.log(`[SIMULATE] Fetching web content from: ${targetUrl}`);
   const fetchedContent = await fetchWebContent(targetUrl, title.trim());
   if (fetchedContent) {
-    console.log(`[SIMULATE] Fetched ${fetchedContent.length} chars from URL/Metadata.`);
+    console.log(`[SIMULATE] Fetched ${fetchedContent.length} chars.`);
   }
 
   const candidate = {

@@ -4,10 +4,10 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 
-// DB file lives at the project root so it survives server restarts on
-// Railway/Render persistent disk. NOT committed to source control (.gitignore).
-const DB_DIR = path.join(__dirname, '..', '..');
-const DB_PATH = path.join(DB_DIR, 'sable.db');
+// DB path: prefer DATABASE_PATH env var (set when using a Railway Volume mount,
+// e.g. /data/sable.db). Falls back to project root for local dev.
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', '..', 'sable.db');
+const DB_DIR  = path.dirname(DB_PATH);
 
 let db;
 
