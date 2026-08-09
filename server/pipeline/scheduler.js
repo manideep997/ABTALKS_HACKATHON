@@ -126,18 +126,26 @@ async function runCycle(agentId = 'sable') {
 /**
  * Initialize and start the in-process background scheduler.
  */
-function startScheduler(agentId = 'sable') {
+function startScheduler() {
   if (cronJob) {
     console.log('[SCHEDULER] Scheduler is already active.');
     return;
   }
 
   console.log(`[SCHEDULER] Registering in-process cron job with schedule: ${config.CRON_SCHEDULE}`);
-  cronJob = cron.schedule(config.CRON_SCHEDULE, () => {
+  cronJob = cron.schedule(config.CRON_SCHEDULE, async () => {
     console.log('[SCHEDULER] Cron tick triggered.');
-    runCycle(agentId).catch(err => {
+    try {
+      const { getDb } = require('../db/database');
+      const db = getDb();
+      const agents = db.prepare('SELECT id FROM agents').all();
+      for (const agent of agents) {
+        console.log(`[SCHEDULER] Running scheduled cycle for agent: ${agent.id}`);
+        await runCycle(agent.id);
+      }
+    } catch (err) {
       console.error('[SCHEDULER] Background run cycle failed:', err);
-    });
+    }
   });
 }
 

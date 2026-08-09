@@ -106,7 +106,7 @@ router.get('/feed', (req, res) => {
  * Manually triggers one autonomous pipeline cycle (subject to concurrency lock).
  */
 router.post('/tick', async (req, res) => {
-  const agentId = config.PERSONA.id;
+  const agentId = req.query.agentId || req.body.agentId || config.PERSONA.id;
   const state = getSchedulerState();
 
   if (state.isCycleRunning) {
@@ -209,7 +209,7 @@ router.post('/simulate', async (req, res) => {
     return res.status(400).json({ error: 'Missing required field: title' });
   }
 
-  const agentId = config.PERSONA.id;
+  const agentId = req.query.agentId || req.body.agentId || config.PERSONA.id;
   let targetUrl = url && url.trim().startsWith('http') ? url.trim() : null;
 
   // Title-only path: resolve to one specific real paper URL
