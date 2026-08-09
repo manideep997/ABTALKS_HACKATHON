@@ -7,6 +7,15 @@ const axios = require('axios');
  * Used by the title-only submission path in /simulate.
  * Returns null if no confident single match found.
  */
+function normalizeArxivUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const m = url.match(/arxiv\.org\/(?:pdf|abs)\/(\d+\.\d+(?:v\d+)?|\w+\/\d+)(?:\.pdf)?/i);
+  if (m && m[1]) {
+    return `https://arxiv.org/abs/${m[1]}`;
+  }
+  return url;
+}
+
 async function resolveTitleToUrl(title) {
   // 1. Try OpenAlex — returns open_access URLs and landing page
   try {
@@ -17,15 +26,15 @@ async function resolveTitleToUrl(title) {
       // Prefer arxiv URL
       const arxivId = work.ids?.arxiv;
       if (arxivId) {
-        const cleanId = arxivId.replace('https://arxiv.org/abs/', '').replace('http://arxiv.org/abs/', '');
+        const cleanId = arxivId.replace(/^https?:\/\/arxiv\.org\/(?:abs|pdf)\//i, '').replace(/\.pdf$/i, '');
         return `https://arxiv.org/abs/${cleanId}`;
       }
       // Try open access URL
       const oaUrl = work.open_access?.oa_url;
-      if (oaUrl && oaUrl.startsWith('http')) return oaUrl;
+      if (oaUrl && oaUrl.startsWith('http')) return normalizeArxivUrl(oaUrl);
       // Try landing page
       const landing = work.primary_location?.landing_page_url;
-      if (landing && landing.startsWith('http')) return landing;
+      if (landing && landing.startsWith('http')) return normalizeArxivUrl(landing);
     }
   } catch (e) {
     console.log(`[RESOLVER] OpenAlex resolve failed: ${e.message}`);
@@ -38,8 +47,11 @@ async function resolveTitleToUrl(title) {
     const paper = resp.data?.data?.[0];
     if (paper && titleSimilar(paper.title || '', title)) {
       const arxivId = paper.externalIds?.ArXiv;
-      if (arxivId) return `https://arxiv.org/abs/${arxivId}`;
-      if (paper.url && paper.url.startsWith('http')) return paper.url;
+      if (arxivId) {
+        const cleanId = arxivId.replace(/^https?:\/\/arxiv\.org\/(?:abs|pdf)\//i, '').replace(/\.pdf$/i, '');
+        return `https://arxiv.org/abs/${cleanId}`;
+      }
+      if (paper.url && paper.url.startsWith('http')) return normalizeArxivUrl(paper.url);
     }
   } catch (e) {
     console.log(`[RESOLVER] Semantic Scholar resolve failed: ${e.message}`);
@@ -71,7 +83,8 @@ async function resolveTitleToUrl(title) {
 // Session-scoped cache — keyed by url+title, cleared on server restart
 const fetchCache = new Map();
 
-async function fetchWebContent(url, paperTitle = '') {
+async function fetchWebContent(rawUrl, paperTitle = '') {
+  const url = normalizeArxivUrl(rawUrl);
   const cacheKey = `${url || ''}::${paperTitle || ''}`;
   if (fetchCache.has(cacheKey)) {
     console.log('[FETCHER] Cache hit — returning previously fetched content.');

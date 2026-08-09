@@ -136,20 +136,42 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
 
     const promptText = `Apply your 4-criteria scoring matrix to the following ${candidates.length} candidate(s). Compute final_score precisely.\n\n${candidateSummaryList}`;
 
-    console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) to ${config.GEMINI_MODEL} via OpenRouter...`);
+    let responseText = '';
 
-    const completion = await client.chat.completions.create({
-      model: config.GEMINI_MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: promptText },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 2000,
-    });
+    // 1. Direct @google/genai API if GEMINI_API_KEY is provided
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const { GoogleGenAI } = require('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) directly to Google AI Studio (@google/genai)...`);
+        const modelName = (config.GEMINI_MODEL || 'gemini-2.5-flash').replace('google/', '');
+        const res = await ai.models.generateContent({
+          model: modelName,
+          contents: `${SYSTEM_PROMPT}\n\n${promptText}`,
+          config: { responseMimeType: 'application/json' },
+        });
+        responseText = res.text || '';
+      } catch (genAiErr) {
+        console.warn(`[JUDGMENT WARN] Direct @google/genai call failed (${genAiErr.message}) — falling back to OpenRouter.`);
+      }
+    }
 
-    const responseText = completion.choices[0]?.message?.content?.trim() || '';
+    // 2. OpenRouter fallback (OpenAI SDK)
+    if (!responseText) {
+      console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) to ${config.GEMINI_MODEL} via OpenRouter...`);
+      const client = getClient();
+      const completion = await client.chat.completions.create({
+        model: config.GEMINI_MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: promptText },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 750,
+      });
+      responseText = completion.choices[0]?.message?.content?.trim() || '';
+    }
     const parsed = JSON.parse(responseText);
     const rawJudgments = parsed.judgments || [];
 
