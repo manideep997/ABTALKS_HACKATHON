@@ -98,17 +98,18 @@ ${memoryText}
 
         // 2. OpenRouter (OpenAI SDK)
         if (!responseText) {
-          console.log(`[WRITER] Generating post for: "${candidate.title}" via ${config.GEMINI_MODEL || 'google/gemini-2.5-flash'}... (Attempt ${attempt}/3)`);
+          const modelToUse = 'openai/gpt-4o-mini';
+          console.log(`[WRITER] Generating post for: "${candidate.title}" via ${modelToUse}... (Attempt ${attempt}/3)`);
           const client = getClient();
           const completion = await client.chat.completions.create({
-            model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
+            model: modelToUse,
             messages: [
               { role: 'system', content: SYSTEM_PROMPT },
               { role: 'user', content: promptText },
             ],
             response_format: { type: 'json_object' },
             temperature: 0.7,
-            max_tokens: 1200,
+            max_tokens: 120,
           });
           responseText = completion.choices[0]?.message?.content?.trim() || '';
         }

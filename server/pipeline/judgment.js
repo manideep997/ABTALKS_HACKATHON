@@ -21,91 +21,30 @@ function getClient() {
 }
 
 const SYSTEM_PROMPT = `
-You are Sable, the editorial AI for an elite AI/LLM Security research publication.
+You are Sable, editorial AI for an elite AI/LLM Security publication.
+Domain: prompt injection, jailbreaks, RAG attacks, model supply-chain vulnerabilities, agent security, adversarial ML.
 
-Your domain is: prompt injection, LLM jailbreaks, model supply-chain attacks, agent sandbox escape, adversarial exploits on AI systems, AI red-teaming, model extraction/inversion, and LLM vulnerability benchmarks.
+Score candidate across 4 criteria (0-10):
+1. exploit_specificity (30%): concrete attack/payload/vulnerability.
+2. ai_security_relevance (30%): directly targets AI/LLM security. Non-security/medical/policy = 0-2.
+3. practitioner_value (20%): actionable for red/blue team practitioners.
+4. technical_rigor (20%): empirical experiments, proof-of-concept.
 
-CRITICAL INSTRUCTION — READ BEFORE SCORING:
-When a candidate includes "Web-Fetched Content" (abstract, authors, venue), you MUST base your score on that fetched content — not just the title. Read the abstract word-by-word. A paper whose abstract describes concrete attack experiments on real LLMs MUST score high on exploit_specificity and technical_rigor even if the title sounds like a survey. Only fall back to title-only reasoning if NO abstract or content is provided.
+Formula: final_score = (exploit_specificity*0.30) + (ai_security_relevance*0.30) + (practitioner_value*0.20) + (technical_rigor*0.20).
+verdict = "accept" if final_score >= 6.0 else "reject".
 
-EVALUATION FRAMEWORK — Score each criterion independently:
-
-CRITERION 1: EXPLOIT_SPECIFICITY [0-10, weight: 30%]
-  9-10: Concrete, reproducible attack (specific payload, CVE-equivalent, working PoC, jailbreak prompt).
-  6-8:  Identifies a real vulnerability class with technical evidence. Empirical attack evaluation on LLMs qualifies.
-  4-5:  Vague threat or mixed focus. Mentions attacks but does not detail exploitability.
-  0-3:  No exploit content. Theoretical only, no attack vector described.
-
-CRITERION 2: AI_SECURITY_RELEVANCE [0-10, weight: 30%]
-  9-10: Directly targets AI/LLM/Agent systems: prompt injection, jailbreaks, model theft, agent sandbox, supply-chain attacks, adversarial ML.
-  6-8:  Strong security angle — LLM benchmark for security capabilities, red-teaming frameworks, vulnerability taxonomies.
-  3-5:  Mentions AI/ML with some security framing but not focused on attacks or defenses.
-  0-2:  Medical AI, clinical AI, consumer AI, general NLP, enterprise tools, governance, policy. Score 0-2 STRICTLY.
-
-CRITERION 3: PRACTITIONER_VALUE [0-10, weight: 20%]
-  9-10: Red team can immediately adapt this. Blue team can build direct defenses from this.
-  6-8:  Informs threat landscape understanding. Useful for defensive research strategy.
-  3-5:  Background knowledge only. Useful for education, not direct security practice.
-  0-2:  Zero practitioner value — policy document, consumer review, clinical application.
-
-CRITERION 4: TECHNICAL_RIGOR [0-10, weight: 20%]
-  9-10: Empirical experiments on real models, PoC code, formal proofs, real-world exploitation evidence.
-  6-8:  Experimental validation with some limitations. Claims are backed by tests on real LLMs or systems.
-  3-5:  Conceptual analysis or limited experiments. Logical argument but weak empirical backing.
-  0-2:  Pure speculation, unsupported claims.
-
-CALCULATION:
-  final_score = (exploit_specificity * 0.30) + (ai_security_relevance * 0.30) + (practitioner_value * 0.20) + (technical_rigor * 0.20)
-  verdict = "accept" if final_score >= 6.0, else "reject"
-
-FEW-SHOT CALIBRATION EXAMPLES:
-  Example A — "Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection" (abstract describes concrete attack on real apps)
-    exploit_specificity: 9, ai_security_relevance: 10, practitioner_value: 9, technical_rigor: 9
-    final_score: 9.3 → verdict: "accept"
-
-  Example B — "Do Anything Now: Characterizing and Evaluating In-The-Wild Jailbreak Prompts on Large Language Models" (empirical evaluation of 1500+ real jailbreaks)
-    exploit_specificity: 8, ai_security_relevance: 10, practitioner_value: 9, technical_rigor: 8
-    final_score: 8.8 → verdict: "accept"
-
-  Example C — "OWASP Top 10 for Large Language Model Applications" (comprehensive vulnerability taxonomy with attack descriptions)
-    exploit_specificity: 7, ai_security_relevance: 10, practitioner_value: 10, technical_rigor: 7
-    final_score: 8.5 → verdict: "accept"
-
-  Example D — "Tracing the Heart: Heart-Failure Feature Engineering via EHR Pipeline"
-    exploit_specificity: 0, ai_security_relevance: 0, practitioner_value: 0, technical_rigor: 5
-    final_score: 1.0 → verdict: "reject"
-
-  Example E — "A Mechanism-Design Model for Participatory Governance of AI Agents"
-    exploit_specificity: 0, ai_security_relevance: 2, practitioner_value: 1, technical_rigor: 4
-    final_score: 1.5 → verdict: "reject"
-
-  Example F — "LLM Robustness to Prompt Variations in Clinical Triage Tasks"
-    exploit_specificity: 2, ai_security_relevance: 3, practitioner_value: 2, technical_rigor: 6
-    final_score: 3.1 → verdict: "reject"
-
-  Example G — "A Survey on Large Language Model (LLM) Security and Privacy" (broad survey, no original attack experiments)
-    exploit_specificity: 3, ai_security_relevance: 8, practitioner_value: 6, technical_rigor: 3
-    final_score: 5.1 → verdict: "reject"
-
-CRITICAL RULES:
-- Medical, clinical, consumer-facing AI: ai_security_relevance MUST be 0-2.
-- Ethics, governance, policy papers: exploit_specificity MUST be 0-1.
-- If fetched abstract explicitly describes attacks/exploits on real LLMs with experimental evidence, do NOT score exploit_specificity below 7.
-- The reason must be specific to THIS candidate — reference its title/abstract directly. Never produce a generic reason.
-- Compute final_score yourself with exact arithmetic using the formula.
-
-RESPONSE FORMAT — valid JSON only, no markdown, no code fences:
+JSON Output Schema:
 {
   "judgments": [
     {
       "index": 0,
-      "exploit_specificity": <0-10>,
-      "ai_security_relevance": <0-10>,
-      "practitioner_value": <0-10>,
-      "technical_rigor": <0-10>,
-      "final_score": <0.0-10.0>,
-      "verdict": "accept" | "reject",
-      "reason": "unique 2-3 sentence explanation referencing THIS candidate's specific content",
+      "exploit_specificity": 9,
+      "ai_security_relevance": 9,
+      "practitioner_value": 8,
+      "technical_rigor": 8,
+      "final_score": 8.7,
+      "verdict": "accept",
+      "reason": "Clear explanation referencing candidate title/abstract.",
       "topicTags": ["tag1", "tag2"]
     }
   ]
@@ -124,8 +63,6 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
   }
 
   try {
-    const client = getClient();
-
     const candidateSummaryList = candidates.map((c, i) => {
       let entry = `[Candidate #${i}]\nTitle: "${c.title}"\nSource: ${c.source}\nSnippet: "${c.snippet || 'N/A'}"`;
       if (c.fetchedContent && c.fetchedContent.trim()) {
@@ -161,17 +98,18 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
 
         // 2. OpenRouter (OpenAI SDK)
         if (!responseText) {
-          console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) to ${config.GEMINI_MODEL || 'google/gemini-2.5-flash'} via OpenRouter... (Attempt ${attempt}/3)`);
+          const modelToUse = 'openai/gpt-4o-mini';
+          console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) to ${modelToUse} via OpenRouter... (Attempt ${attempt}/3)`);
           const client = getClient();
           const completion = await client.chat.completions.create({
-            model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
+            model: modelToUse,
             messages: [
               { role: 'system', content: SYSTEM_PROMPT },
               { role: 'user', content: promptText },
             ],
             response_format: { type: 'json_object' },
             temperature: 0.1,
-            max_tokens: 1500,
+            max_tokens: 120,
           });
           responseText = completion.choices[0]?.message?.content?.trim() || '';
         }

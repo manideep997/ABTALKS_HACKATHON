@@ -27,7 +27,7 @@ module.exports = {
   // LLM — Direct Google AI Studio or OpenRouter proxy
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || null,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
-  GEMINI_MODEL: process.env.GEMINI_MODEL || null,
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'openai/gpt-4o-mini',
 
   // Mock mode — transparent only, never silent
   ALLOW_MOCK_MODE: allowMock,
