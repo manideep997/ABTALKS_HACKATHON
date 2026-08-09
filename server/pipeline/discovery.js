@@ -101,26 +101,8 @@ async function discover(agentId = 'sable') {
     fetchArXiv(),
   ]);
 
-  // Inject high-quality seed security papers to guarantee dynamic first-run acceptance for fresh agentIds
-  const seeds = [
-    {
-      title: 'PoisonedRAG: Knowledge Corruption Attacks to Retrieval-Augmented Generation of Large Language Models',
-      url: 'https://arxiv.org/abs/2402.07867',
-      snippet: 'Large language models (LLMs) have achieved remarkable success due to their exceptional generative capabilities. Retrieval-Augmented Generation (RAG) is a state-of-the-art technique to retrieve external context.',
-      source: 'arXiv',
-      publishedAt: '2024-02-12T00:00:00Z'
-    },
-    {
-      title: 'Universal and Transferable Adversarial Attacks on Aligned Language Models',
-      url: 'https://arxiv.org/abs/2307.15043',
-      snippet: 'We propose a simple gradient-based optimization method to find universal and transferable adversarial prompt suffixes that force aligned language models to output objectionable content.',
-      source: 'arXiv',
-      publishedAt: '2023-07-27T00:00:00Z'
-    }
-  ];
-
-  const rawCandidates = [...seeds, ...hnTopics, ...arxivTopics];
-  console.log(`[DISCOVERY] Fetched ${rawCandidates.length} total raw candidates (${hnTopics.length} HN, ${arxivTopics.length} arXiv, ${seeds.length} seeds).`);
+  const rawCandidates = [...hnTopics, ...arxivTopics];
+  console.log(`[DISCOVERY] Fetched ${rawCandidates.length} total raw candidates (${hnTopics.length} HN, ${arxivTopics.length} arXiv).`);
 
   const db = getDb();
   const freshCandidates = [];
