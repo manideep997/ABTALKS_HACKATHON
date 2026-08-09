@@ -144,7 +144,7 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
         const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) directly to Google AI Studio (@google/genai)...`);
-        const modelName = 'gemini-1.5-flash-latest';
+        const modelName = 'gemini-2.0-flash';
         const res = await ai.models.generateContent({
           model: modelName,
           contents: `${SYSTEM_PROMPT}\n\n${promptText}`,
@@ -161,14 +161,14 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
       console.log(`[JUDGMENT] Submitting ${candidates.length} candidate(s) to ${config.GEMINI_MODEL} via OpenRouter...`);
       const client = getClient();
       const completion = await client.chat.completions.create({
-        model: config.GEMINI_MODEL,
+        model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: promptText },
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-        max_tokens: 500,
+        max_tokens: 1200,
       });
       responseText = completion.choices[0]?.message?.content?.trim() || '';
     }

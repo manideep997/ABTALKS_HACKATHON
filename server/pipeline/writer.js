@@ -81,7 +81,7 @@ ${memoryText}
         const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         console.log(`[WRITER] Generating post directly via Google AI Studio (@google/genai)...`);
-        const modelName = 'gemini-1.5-flash-latest';
+        const modelName = 'gemini-2.0-flash';
         const res = await ai.models.generateContent({
           model: modelName,
           contents: `${SYSTEM_PROMPT}\n\n${promptText}`,
@@ -98,14 +98,14 @@ ${memoryText}
       console.log(`[WRITER] Generating post for: "${candidate.title}" via ${config.GEMINI_MODEL}...`);
       const client = getClient();
       const completion = await client.chat.completions.create({
-        model: config.GEMINI_MODEL,
+        model: config.GEMINI_MODEL || 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: promptText },
         ],
         response_format: { type: 'json_object' },
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1000,
       });
       responseText = completion.choices[0]?.message?.content?.trim() || '';
     }
