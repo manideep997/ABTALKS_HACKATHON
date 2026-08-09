@@ -60,8 +60,8 @@ async function runCycle(agentId = 'sable') {
     }
 
     // 2. Editorial Judgment
-    // Limit to batch size of 2 to preserve quota and ensure full JSON response
-    const batch = candidates.slice(0, 2);
+    // Limit to batch size of 1 for minimum token reservation
+    const batch = candidates.slice(0, 1);
     const judgmentResponse = await judgeCandidates(batch, agentId);
 
     if (!judgmentResponse.success) {

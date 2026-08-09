@@ -168,7 +168,7 @@ async function judgeCandidates(candidates = [], agentId = 'sable') {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-        max_tokens: 300,
+        max_tokens: 65,
       });
       responseText = completion.choices[0]?.message?.content?.trim() || '';
     }
