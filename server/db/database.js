@@ -105,6 +105,9 @@ function initSchema() {
       score      INTEGER NOT NULL,
       scored_at  TEXT NOT NULL
     );
+
+    INSERT OR IGNORE INTO agents (id, name, domain, voice_notes, created_at)
+    VALUES ('sable', 'Sable', 'AI & LLM Security Research', 'Skeptical, precise, and technically authoritative.', '2026-08-08T00:00:00.000Z');
   `);
 }
 
