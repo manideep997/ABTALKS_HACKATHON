@@ -78,7 +78,7 @@ ${memoryText}
     // 1. Direct @google/genai API if GEMINI_API_KEY is provided
     if (process.env.GEMINI_API_KEY) {
       try {
-        const { GoogleGenAI } = require('@google/genai');
+        const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         console.log(`[WRITER] Generating post directly via Google AI Studio (@google/genai)...`);
         const modelName = (config.GEMINI_MODEL || 'gemini-2.5-flash').replace('google/', '');
