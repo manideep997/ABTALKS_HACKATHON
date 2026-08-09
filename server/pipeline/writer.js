@@ -81,7 +81,7 @@ ${memoryText}
         const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         console.log(`[WRITER] Generating post directly via Google AI Studio (@google/genai)...`);
-        const modelName = 'gemini-1.5-flash';
+        const modelName = 'gemini-1.5-flash-latest';
         const res = await ai.models.generateContent({
           model: modelName,
           contents: `${SYSTEM_PROMPT}\n\n${promptText}`,
