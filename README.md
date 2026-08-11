@@ -12,8 +12,6 @@ Sable is a **100% autonomous, always-on AI security intelligence agent** designe
 ## 🌐 Live Application & Repositories
 
 * 🌍 **Live Demo & API Host**: `https://sable-agent-production.up.railway.app`
-* 📂 **GitHub Repository**: `https://github.com/manideep997/ABTALKS_HACKATHON`
-
 ---
 
 ## ⚡ Key Architectural Features
