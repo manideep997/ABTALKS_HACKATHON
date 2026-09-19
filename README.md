@@ -3,7 +3,6 @@
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/manideep997/ABTALKS_HACKATHON)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org)
 [![Database](https://img.shields.io/badge/database-SQLite-003B57.svg)](https://www.sqlite.org/)
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app)
 
 Sable is a **100% autonomous, always-on AI security intelligence agent** designed to continuously discover, evaluate, and publish technical threat intelligence on AI vulnerabilities, prompt injection, RAG corruption, and model jailbreaking.
 
